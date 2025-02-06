@@ -1,8 +1,9 @@
-package main
+package elevator
 
 import (
 	"Driver-go/elevio"
 	"fmt"
+	
 )
 
 
@@ -55,15 +56,18 @@ func ElevatorUninitialized() Elevator {
 	}
 }
 
+var (
+	Elev     Elevator
+	//outputDevice ElevOutputDevice
+)
 
-
-func initElevator(numFloors int, numButtonTypes int) {
+func InitElevator(numFloors int, numButtonTypes int) {
 	if numFloors > NUMFLOORS || numButtonTypes > NUMBUTTONTYPE {
 		fmt.Println("Error: Configuration exceeds allowed array size.")
 		return
 	}
 
-	elevator = Elevator{
+	Elev = Elevator{
 		Floor:    -1,                      // Start utenfor en definert etasje
 		Dirn:     elevio.MD_Stop,          // Heisen starter som stoppet
 		Behaviour: ElevatorBehaviour(EB_Idle),                // Heisen starter i "Idle"-tilstand
@@ -79,10 +83,10 @@ func initElevator(numFloors int, numButtonTypes int) {
 	// Initialiser forespørselsmatrisen med nuller
 	for i := 0; i < NUMFLOORS; i++ {
 		for j := 0; j < NUMBUTTONTYPE; j++ {
-			elevator.Requests[i][j] = 0
+			Elev.Requests[i][j] = 0
 		}
 	}
 
 	fmt.Println("Elevator initialized:")
-	fmt.Printf("%+v\n", elevator)
+	fmt.Printf("%+v\n", Elev)
 }

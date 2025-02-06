@@ -2,6 +2,9 @@ package main
 
 import (
 	"Driver-go/elevio"
+	"Driver-go/fsm"
+	"Driver-go/elevator"
+	"Driver-go/timer"
 	"fmt"
 	"time"
 )
@@ -13,15 +16,15 @@ func main() {
 	numFloors := 4
 	elevio.Init("localhost:15657", numFloors) // Connect to hardware server
 
-	initElevator(numFloors, elevio.NumButtonTypes)
+	elevator.InitElevator(numFloors, elevio.NumButtonTypes)
 
 	// Check if elevator starts between floors
 	if initialFloor := elevio.GetFloor(); initialFloor == -1 {
 		fmt.Println("Elevator is between floors on startup. Running initialization...")
-		fsmOnInitBetweenFloors()
+		fsm.FsmOnInitBetweenFloors(elevator.Elev)
 	} else {
 		// If the elevator starts at a valid floor, initialize its state
-		fsmOnFloorArrival(initialFloor)
+		fsm.FsmOnFloorArrival(initialFloor)
 	}
 
 	// Polling rate configuration
@@ -60,19 +63,19 @@ func main() {
 			}
 
 			fmt.Printf("Button pressed at floor %d, button type %d\n", buttonEvent.Floor, buttonEvent.Button)
-			fsmOnRequestButtonPress(buttonEvent.Floor, buttonEvent.Button)
+			fsm.FsmOnRequestButtonPress(buttonEvent.Floor, buttonEvent.Button)
 
 		case currentFloor := <-floorSensorCh:
 			// Handle floor sensor event
 
 			if currentFloor != prevFloor {
 				fmt.Printf("Arrived at floor %d\n", currentFloor)
-				fsmOnFloorArrival(currentFloor)
+				fsm.FsmOnFloorArrival(currentFloor)
 				elevio.SetFloorIndicator(currentFloor) // Update floor indicator lamp
 
 				if !obstructionActive {
-					timerStop()
-					timerStart(3.0)
+					timer.TimerStop()
+					timer.TimerStart(3.0)
 					fmt.Println("timer started")
 				}
 				// Stop and restart the timer when arriving at a floor
@@ -84,7 +87,7 @@ func main() {
 		case stopPressed := <-stopButtonCh:
 			// Handle stop button event
 			if stopPressed {
-				lastKnownDirection = elevator.Dirn
+				lastKnownDirection = elevator.Elev.Dirn
 				fmt.Println("Stop button pressed!")
 				fmt.Println(lastKnownDirection)
 				elevio.SetStopLamp(true)
@@ -97,20 +100,20 @@ func main() {
 
 		case <-time.After(inputPollRate):
 			// Periodic tasks (check timer)
-			if timerTimedOut() {
+			if timer.TimerTimedOut() {
 				fmt.Println("Door timeout occurred.")
-				fsmOnDoorTimeout()
-				timerStop() // Reset the timer after timeout handling
+				fsm.FsmOnDoorTimeout()
+				timer.TimerStop() // Reset the timer after timeout handling
 			}
 		case obstruction := <-obstructionSwitchCh:
 			if obstruction {
 				obstructionActive = true
-				timerStop()
+				timer.TimerStop()
 				fmt.Println("obstruction switch")
 			} else if !obstruction {
 				obstructionActive = false
-				timerStop()
-				timerStart(3.0)
+				timer.TimerStop()
+				timer.TimerStart(3.0)
 				fmt.Println("obstruction switch off")
 			}
 		}

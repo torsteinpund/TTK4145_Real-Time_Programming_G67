@@ -1,4 +1,4 @@
-package main
+package timer
 
 import (
 	"time"
@@ -16,18 +16,18 @@ func getWallTime() float64 {
 }
 
 // timerStart starter en timer med en spesifisert varighet i sekunder
-func timerStart(duration float64) {
+func TimerStart(duration float64) {
 	timerEndTime = getWallTime() + duration
 	timerActive = true
 }
 
 // timerStop stopper den aktive timeren
-func timerStop() {
+func TimerStop() {
 	timerActive = false
 }
 
 // timerTimedOut sjekker om timeren har gått ut
-func timerTimedOut() bool {
+func TimerTimedOut() bool {
 	return timerActive && getWallTime() > timerEndTime
 }
 
