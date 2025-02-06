@@ -32,10 +32,6 @@ func (d ElevOutputDevice) SetStopLamp(value bool) {
 }
 
 
-
-
-
-
 // fsmInit initialiserer heisens tilstand og tilhørende systemer
 /*func fsmInit() {
 	// Initialiser heisen med standardverdier
@@ -51,54 +47,55 @@ func (d ElevOutputDevice) SetStopLamp(value bool) {
 	outputDevice = getOutputDevice()
 }*/
 
-func SetAllLights(e elevator.Elevator) {
+func SetAllLights(req [elevator.NUMFLOORS][elevator.NUMBUTTONTYPE]int) [elevator.NUMFLOORS][elevator.NUMBUTTONTYPE]int{
 	for floor := 0; floor < elevio.NumFloors; floor++ {
 		for btn := 0; btn < elevio.NumButtonTypes; btn++ {
-			state := e.Requests[floor][btn]
+			state := req[floor][btn]
 			elevio.SetButtonLamp(elevio.ButtonType(btn), floor, state == 1)
 		}
 	}
+	return req
 }
 
-func FsmOnInitBetweenFloors(e elevator.Elevator) {
+func FsmOnInitBetweenFloors() (elevator.ElevatorBehaviour, elevio.MotorDirection)  {
 	// Sett motoren til å bevege seg nedover
 	elevio.SetMotorDirection(elevio.MD_Down)
 
 	// Oppdater heisens retning og oppførsel
-	e.Dirn = elevio.MD_Down
-	e.Behaviour = elevator.ElevatorBehaviour(elevator.EB_Moving)
+	dirn := elevio.MD_Down
+	behaviour := elevator.ElevatorBehaviour(elevator.EB_Moving)
+	return behaviour, dirn
 }
 
 
-func FsmOnRequestButtonPress(btnFloor int, btnType elevio.ButtonType) {
+func FsmOnRequestButtonPress(btnFloor int, btnType elevio.ButtonType, elev elevator.Elevator) elevator.Elevator{
 	fmt.Printf("\n\nfsmOnRequestButtonPress(%d, %v)\n", btnFloor, btnType)
 	//elevatorPrint(elevator)
-
-	switch elevator.Elev.Behaviour {
+	switch elev.Behaviour {
 	case elevator.ElevatorBehaviour(elevator.EB_DoorOpen):
-		if requests.RequestsShouldClearImmediately(elevator.Elev, btnFloor, btnType) {
-			timer.TimerStart(elevator.Elev.Config.DoorOpenDurationS)
+		if requests.RequestsShouldClearImmediately(elev, btnFloor, btnType) {
+			timer.TimerStart(elev.Config.DoorOpenDurationS)
 		} else {
-			elevator.Elev.Requests[btnFloor][btnType] = 1
+			elev.Requests[btnFloor][btnType] = 1
 		}
 
 	case elevator.ElevatorBehaviour(elevator.EB_Moving):
-		elevator.Elev.Requests[btnFloor][btnType] = 1
+		elev.Requests[btnFloor][btnType] = 1
 
 	case elevator.ElevatorBehaviour(elevator.EB_Idle):
-		elevator.Elev.Requests[btnFloor][btnType] = 1
-		dirnBehaviour := requests.RequestsChooseDirection(elevator.Elev)
-		elevator.Elev.Dirn = dirnBehaviour.Dirn
-		elevator.Elev.Behaviour = elevator.ElevatorBehaviour(dirnBehaviour.Behaviour)
+		elev.Requests[btnFloor][btnType] = 1
+		dirnBehaviour := requests.RequestsChooseDirection(elev)
+		elev.Dirn = dirnBehaviour.Dirn
+		elev.Behaviour = elevator.ElevatorBehaviour(dirnBehaviour.Behaviour)
 
 		switch dirnBehaviour.Behaviour {
 		case elevator.EB_DoorOpen:
 			elevio.SetDoorOpenLamp(true)
-			timer.TimerStart(elevator.Elev.Config.DoorOpenDurationS)
-			elevator.Elev = requests.RequestsClearAtCurrentFloor(elevator.Elev)
+			timer.TimerStart(elev.Config.DoorOpenDurationS)
+			elev = requests.RequestsClearAtCurrentFloor(elev)
 
 		case elevator.EB_Moving:
-			elevio.SetMotorDirection(elevator.Elev.Dirn)
+			elevio.SetMotorDirection(elev.Dirn)
 
 		case elevator.EB_Idle:
 			// Ingen handling nødvendig
@@ -106,27 +103,28 @@ func FsmOnRequestButtonPress(btnFloor int, btnType elevio.ButtonType) {
 	}
 
 	// Oppdater knappelysene
-	SetAllLights(elevator.Elev)
+	elev.Requests = SetAllLights(elev.Requests)
 
 	// Logg den nye tilstanden til heisen
 	fmt.Println("\nNew state:")
 	//elevatorPrint(elevator)
+	return elev
 }
 
-func FsmOnFloorArrival(newFloor int) {
+func FsmOnFloorArrival(newFloor int, elev elevator.Elevator) elevator.Elevator {
 	fmt.Printf("\n\nfsmOnFloorArrival(%d)\n", newFloor)
 	//elevatorPrint(elevator)
 
 	// Oppdater heisens nåværende etasje
-	elevator.Elev.Floor = newFloor
+	elev.Floor = newFloor
 
 	// Oppdater etasjeindikatoren
-	elevio.SetFloorIndicator(elevator.Elev.Floor)
+	elevio.SetFloorIndicator(elev.Floor)
 
-	switch elevator.Elev.Behaviour {
+	switch elev.Behaviour {
 	case elevator.ElevatorBehaviour(elevator.EB_Moving):
 		// Sjekk om heisen skal stoppe i denne etasjen
-		if requests.RequestsShouldStop(elevator.Elev) {
+		if requests.RequestsShouldStop(elev) {
 			// Stopp motoren
 			elevio.SetMotorDirection(elevio.MD_Stop)
 
@@ -134,16 +132,16 @@ func FsmOnFloorArrival(newFloor int) {
 			elevio.SetDoorOpenLamp(true)
 
 			// Rydd forespørsler for nåværende etasje
-			elevator.Elev = requests.RequestsClearAtCurrentFloor(elevator.Elev)
+			elev = requests.RequestsClearAtCurrentFloor(elev)
 
 			// Start timer for å holde dørene åpne
-			timer.TimerStart(elevator.Elev.Config.DoorOpenDurationS)
+			timer.TimerStart(elev.Config.DoorOpenDurationS)
 
 			// Oppdater knappelysene
-			SetAllLights(elevator.Elev)
+			elev.Requests = SetAllLights(elev.Requests)
 
 			// Endre heisens oppførsel til "DoorOpen"
-			elevator.Elev.Behaviour = elevator.ElevatorBehaviour(elevator.EB_DoorOpen)
+			elev.Behaviour = elevator.ElevatorBehaviour(elevator.EB_DoorOpen)
 		}
 
 	default:
@@ -153,30 +151,31 @@ func FsmOnFloorArrival(newFloor int) {
 	// Logg den nye tilstanden til heisen
 	fmt.Println("\nNew state:")
 	//elevatorPrint(elevator)
+	return elev
 }
 
-func FsmOnDoorTimeout() {
+func FsmOnDoorTimeout(elev elevator.Elevator) elevator.Elevator{
 	fmt.Printf("\n\nfsmOnDoorTimeout()\n")
 	//elevatorPrint(elevator)
 
-	switch elevator.Elev.Behaviour {
+	switch elev.Behaviour {
 	case elevator.ElevatorBehaviour(elevator.EB_DoorOpen):
 		// Velg neste retning og oppførsel basert på forespørsler
-		dirnBehaviour := requests.RequestsChooseDirection(elevator.Elev)
-		elevator.Elev.Dirn = dirnBehaviour.Dirn
-		elevator.Elev.Behaviour = elevator.ElevatorBehaviour(dirnBehaviour.Behaviour)
+		dirnBehaviour := requests.RequestsChooseDirection(elev)
+		elev.Dirn = dirnBehaviour.Dirn
+		elev.Behaviour = elevator.ElevatorBehaviour(dirnBehaviour.Behaviour)
 
-		switch elevator.Elev.Behaviour {
+		switch elev.Behaviour {
 		case elevator.ElevatorBehaviour(elevator.EB_DoorOpen):
 			// Start timer på nytt og rydd forespørsler i nåværende etasje
-			timer.TimerStart(elevator.Elev.Config.DoorOpenDurationS)
-			elevator.Elev = requests.RequestsClearAtCurrentFloor(elevator.Elev)
-			SetAllLights(elevator.Elev)
+			timer.TimerStart(elev.Config.DoorOpenDurationS)
+			elev = requests.RequestsClearAtCurrentFloor(elev)
+			elev.Requests = SetAllLights(elev.Requests)
 
 		case elevator.ElevatorBehaviour(elevator.EB_Moving), elevator.ElevatorBehaviour(elevator.EB_Idle):
 			// Lukk dørene og sett motorretning
 			elevio.SetDoorOpenLamp(false)
-			elevio.SetMotorDirection(elevator.Elev.Dirn)
+			elevio.SetMotorDirection(elev.Dirn)
 		}
 
 	default:
@@ -184,5 +183,5 @@ func FsmOnDoorTimeout() {
 	}
 
 	fmt.Println("\nNew state:")
-	//elevatorPrint(elevator)
+	return elev
 }

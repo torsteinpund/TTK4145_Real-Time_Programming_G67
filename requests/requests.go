@@ -2,7 +2,7 @@ package requests
 
 import (
 	"Driver-go/elevio"
-	. "Driver-go/elevator"
+	"Driver-go/elevator"
 )
 
 //All channels have underscore in names, and variables have capital letters to devide words
@@ -12,13 +12,12 @@ type DirnBehaviourPair struct {
 	Behaviour elevio.Behaviour
 }
 
-
-func RequestsAbove(e Elevator) bool {
+func RequestsAbove(req [elevator.NUMFLOORS][elevator.NUMBUTTONTYPE]int, floor int) bool {
 	// Iterer gjennom etasjene over nåværende etasje
-	for i := e.Floor + 1; i < elevio.NumFloors; i++ {
+	for i := floor + 1; i < elevio.NumFloors; i++ {
 		// Sjekk alle knappeforespørsler for hver etasje
 		for j := 0; j < elevio.NumButtonTypes; j++ {
-			if e.Requests[i][j] == 1 { // Hvis det finnes en aktiv forespørsel
+			if req[i][j] == 1 { // Hvis det finnes en aktiv forespørsel
 				return true
 			}
 		}
@@ -26,14 +25,12 @@ func RequestsAbove(e Elevator) bool {
 	return false
 }
 
-
-
-func RequestsBelow(e Elevator) bool {
+func RequestsBelow(req [elevator.NUMFLOORS][elevator.NUMBUTTONTYPE]int, floor int) bool {
 	// Iterer gjennom etasjene under nåværende etasje
-	for i := 0; i < e.Floor; i++ {
+	for i := 0; i < floor; i++ {
 		// Sjekk alle knappeforespørsler for hver etasje
 		for j := 0; j < elevio.NumButtonTypes; j++ {
-			if e.Requests[i][j] == 1 { // Hvis det finnes en aktiv forespørsel
+			if req[i][j] == 1 { // Hvis det finnes en aktiv forespørsel
 				return true
 			}
 		}
@@ -41,12 +38,10 @@ func RequestsBelow(e Elevator) bool {
 	return false
 }
 
-
-
-func RequestsHere(e Elevator) bool {
+func RequestsHere(req [elevator.NUMFLOORS][elevator.NUMBUTTONTYPE]int, floor int) bool {
 	// Sjekk alle knappeforespørsler for den nåværende etasjen
 	for j := 0; j < elevio.NumButtonTypes; j++ {
-		if e.Requests[e.Floor][j] == 1 { // Hvis det finnes en aktiv forespørsel
+		if req[floor][j] == 1 { // Hvis det finnes en aktiv forespørsel
 			return true
 		}
 	}
@@ -54,53 +49,53 @@ func RequestsHere(e Elevator) bool {
 }
 
 
-func RequestsChooseDirection(e Elevator) DirnBehaviourPair {
-	switch e.Dirn {
+func RequestsChooseDirection(elev elevator.Elevator) DirnBehaviourPair {
+	switch elev.Dirn {
 	case elevio.MD_Up:
-		if RequestsAbove(e) {
-			return DirnBehaviourPair{elevio.MD_Up, EB_Moving}
-		} else if RequestsHere(e) {
-			return DirnBehaviourPair{elevio.MD_Down, EB_DoorOpen}
-		} else if RequestsBelow(e) {
-			return DirnBehaviourPair{elevio.MD_Down, EB_Moving}
+		if RequestsAbove(elev.Requests, elev.Floor) {
+			return DirnBehaviourPair{elevio.MD_Up, elevator.EB_Moving}
+		} else if RequestsHere(elev.Requests, elev.Floor) {
+			return DirnBehaviourPair{elevio.MD_Down, elevator.EB_DoorOpen}
+		} else if RequestsBelow(elev.Requests, elev.Floor) {
+			return DirnBehaviourPair{elevio.MD_Down, elevator.EB_Moving}
 		} else {
-			return DirnBehaviourPair{elevio.MD_Stop, EB_Idle}
+			return DirnBehaviourPair{elevio.MD_Stop, elevator.EB_Idle}
 		}
 	case elevio.MD_Down:
-		if RequestsBelow(e) {
-			return DirnBehaviourPair{elevio.MD_Down, EB_Moving}
-		} else if RequestsHere(e) {
-			return DirnBehaviourPair{elevio.MD_Up, EB_DoorOpen}
-		} else if RequestsAbove(e) {
-			return DirnBehaviourPair{elevio.MD_Up, EB_Moving}
+		if RequestsBelow(elev.Requests, elev.Floor) {
+			return DirnBehaviourPair{elevio.MD_Down, elevator.EB_Moving}
+		} else if RequestsHere(elev.Requests, elev.Floor) {
+			return DirnBehaviourPair{elevio.MD_Up, elevator.EB_DoorOpen}
+		} else if RequestsAbove(elev.Requests, elev.Floor) {
+			return DirnBehaviourPair{elevio.MD_Up, elevator.EB_Moving}
 		} else {
-			return DirnBehaviourPair{elevio.MD_Stop, EB_Idle}
+			return DirnBehaviourPair{elevio.MD_Stop, elevator.EB_Idle}
 		}
 	case elevio.MD_Stop:
-		if RequestsHere(e) {
-			return DirnBehaviourPair{elevio.MD_Stop, EB_DoorOpen}
-		} else if RequestsAbove(e) {
-			return DirnBehaviourPair{elevio.MD_Up, EB_Moving}
-		} else if RequestsBelow(e) {
-			return DirnBehaviourPair{elevio.MD_Down, EB_Moving}
+		if RequestsHere(elev.Requests, elev.Floor) {
+			return DirnBehaviourPair{elevio.MD_Stop, elevator.EB_DoorOpen}
+		} else if RequestsAbove(elev.Requests, elev.Floor) {
+			return DirnBehaviourPair{elevio.MD_Up, elevator.EB_Moving}
+		} else if RequestsBelow(elev.Requests, elev.Floor) {
+			return DirnBehaviourPair{elevio.MD_Down, elevator.EB_Moving}
 		} else {
-			return DirnBehaviourPair{elevio.MD_Stop, EB_Idle}
+			return DirnBehaviourPair{elevio.MD_Stop, elevator.EB_Idle}
 		}
 	default:
-		return DirnBehaviourPair{elevio.MD_Stop, EB_Idle}
+		return DirnBehaviourPair{elevio.MD_Stop, elevator.EB_Idle}
 	}
 }
 
-func RequestsShouldStop(e Elevator) bool {
-	switch e.Dirn {
+func RequestsShouldStop(elev elevator.Elevator) bool {
+	switch elev.Dirn {
 	case elevio.MD_Down:
-		return e.Requests[e.Floor][elevio.BT_HallDown] == 1 ||
-			e.Requests[e.Floor][elevio.BT_Cab] == 1 ||
-			!RequestsBelow(e)
+		return elev.Requests[elev.Floor][elevio.BT_HallDown] == 1 ||
+			elev.Requests[elev.Floor][elevio.BT_Cab] == 1 ||
+			!RequestsBelow(elev.Requests, elev.Floor)
 	case elevio.MD_Up:
-		return e.Requests[e.Floor][elevio.BT_HallUp] == 1 ||
-			e.Requests[e.Floor][elevio.BT_Cab] == 1 ||
-			!RequestsAbove(e)
+		return elev.Requests[elev.Floor][elevio.BT_HallUp] == 1 ||
+			elev.Requests[elev.Floor][elevio.BT_Cab] == 1 ||
+			!RequestsAbove(elev.Requests, elev.Floor)
 	case elevio.MD_Stop:
 		fallthrough // Gå til default
 	default:
@@ -108,18 +103,18 @@ func RequestsShouldStop(e Elevator) bool {
 	}
 }
 
-func RequestsShouldClearImmediately(e Elevator, btnFloor int, btnType elevio.ButtonType) bool {
-	switch e.Config.ClearRequestVariant {
-	case CV_All:
+func RequestsShouldClearImmediately(elev elevator.Elevator, btnFloor int, btnType elevio.ButtonType) bool {
+	switch elev.Config.ClearRequestVariant {
+	case elevator.CV_All:
 		// Fjern forespørselen hvis heisen er i samme etasje
-		return e.Floor == btnFloor
-	case CV_InDirn:
+		return elev.Floor == btnFloor
+	case elevator.CV_InDirn:
 		// Fjern forespørselen hvis heisen er i samme etasje og:
-		return e.Floor == btnFloor &&
+		return elev.Floor == btnFloor &&
 			(
-				(e.Dirn == elevio.MD_Up && btnType == elevio.BT_HallUp) ||
-				(e.Dirn == elevio.MD_Down && btnType == elevio.BT_HallDown) ||
-				e.Dirn == elevio.MD_Stop ||
+				(elev.Dirn == elevio.MD_Up && btnType == elevio.BT_HallUp) ||
+				(elev.Dirn == elevio.MD_Down && btnType == elevio.BT_HallDown) ||
+				elev.Dirn == elevio.MD_Stop ||
 				btnType == elevio.BT_Cab)
 	default:
 		// Ikke fjern forespørselen
@@ -127,37 +122,37 @@ func RequestsShouldClearImmediately(e Elevator, btnFloor int, btnType elevio.But
 	}
 }
 
-func RequestsClearAtCurrentFloor(e Elevator) Elevator {
-	switch e.Config.ClearRequestVariant {
-	case CV_All:
+func RequestsClearAtCurrentFloor(elev elevator.Elevator) elevator.Elevator {
+	switch elev.Config.ClearRequestVariant {
+	case elevator.CV_All:
 		// Fjern alle forespørsler i den nåværende etasjen
 		for btn := 0; btn < elevio.NumButtonTypes; btn++ {
-			e.Requests[e.Floor][btn] = 0
+			elev.Requests[elev.Floor][btn] = 0
 		}
 
-	case CV_InDirn:
+	case elevator.CV_InDirn:
 		// Fjern forespørsler fra innsiden av heisen
-		e.Requests[e.Floor][elevio.BT_Cab] = 0
+		elev.Requests[elev.Floor][elevio.BT_Cab] = 0
 
-		switch e.Dirn {
+		switch elev.Dirn {
 		case elevio.MD_Up:
-			if !RequestsAbove(e) && e.Requests[e.Floor][elevio.BT_Cab] == 0 {
-				e.Requests[e.Floor][elevio.BT_Cab] = 0
+			if !RequestsAbove(elev.Requests, elev.Floor) && elev.Requests[elev.Floor][elevio.BT_Cab] == 0 {
+				elev.Requests[elev.Floor][elevio.BT_Cab] = 0
 			}
-			e.Requests[e.Floor][elevio.BT_Cab] = 0
+			elev.Requests[elev.Floor][elevio.BT_Cab] = 0
 
 		case elevio.MD_Down:
-			if !RequestsBelow(e) && e.Requests[e.Floor][elevio.BT_Cab] == 0 {
-				e.Requests[e.Floor][elevio.BT_Cab] = 0
+			if !RequestsBelow(elev.Requests, elev.Floor) && elev.Requests[elev.Floor][elevio.BT_Cab] == 0 {
+				elev.Requests[elev.Floor][elevio.BT_Cab] = 0
 			}
-			e.Requests[e.Floor][elevio.BT_Cab] = 0
+			elev.Requests[elev.Floor][elevio.BT_Cab] = 0
 
 		case elevio.MD_Stop:
 			fallthrough
 		default:
-			e.Requests[e.Floor][elevio.BT_HallUp] = 0
-			e.Requests[e.Floor][elevio.BT_HallDown] = 0
+			elev.Requests[elev.Floor][elevio.BT_HallUp] = 0
+			elev.Requests[elev.Floor][elevio.BT_HallDown] = 0
 		}
 	}
-	return e
+	return elev 
 }
