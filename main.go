@@ -7,6 +7,7 @@ import (
 	"Driver-go/timer"
 	"fmt"
 	"time"
+	"Driver-go/network/bcast"
 )
 
 
@@ -37,12 +38,15 @@ func main() {
 	floorSensorCh := make(chan int)
 	stopButtonCh := make(chan bool)
 	obstructionSwitchCh := make(chan bool)
-
+	receivedButtonPressCh := make(chan elevio.ButtonEvent)
 	// Start polling goroutines
 	go elevio.PollButtons(buttonPressCh)
 	go elevio.PollFloorSensor(floorSensorCh)
 	go elevio.PollStopButton(stopButtonCh)
 	go elevio.PollObstructionSwitch(obstructionSwitchCh)
+
+	go bcast.Transmitter(15000, buttonPressCh)
+	go bcast.Receiver(15000, receivedButtonPressCh)
 
 	// Initialize system state
 	prevFloor := -1
@@ -56,13 +60,14 @@ func main() {
 	// Main event loop
 	for {
 		select {
-		case buttonEvent := <-buttonPressCh:
+		case buttonEvent := <-receivedButtonPressCh:
 			// Handle button press event
-
+			fmt.Printf("Received: %#v\n",buttonEvent.Floor)
 			if stop {
 				elevio.SetMotorDirection(lastKnownDirection)
 				stop = false
 			}
+			fmt.Println("Button pressed!")
 
 			fmt.Printf("Button pressed at floor %d, button type %d\n", buttonEvent.Floor, buttonEvent.Button)
 			elev = fsm.FsmOnRequestButtonPress(buttonEvent.Floor, buttonEvent.Button, elev)
@@ -276,7 +281,7 @@ func loadConfig(filename string, inputPollRateMs *int) {
 	for {
 		select {
 		case a := <-drv_buttons:
-			fmt.Printf("%+v\n", a)
+			fmt.Pselect {rintf("%+v\n", a)
 			elevio.SetButtonLamp(a.Button, a.Floor, true)
 
 		case a := <-drv_floors:

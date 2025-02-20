@@ -74,7 +74,7 @@ func FsmOnRequestButtonPress(btnFloor int, btnType elevio.ButtonType, elev eleva
 	switch elev.Behaviour {
 	case elevator.ElevatorBehaviour(elevator.EB_DoorOpen):
 		if requests.RequestsShouldClearImmediately(elev, btnFloor, btnType) {
-			timer.TimerStart(elev.Config.DoorOpenDurationS)
+			timer.TimerStart(elev.Config.DoorOpenDuration)
 		} else {
 			elev.Requests[btnFloor][btnType] = 1
 		}
@@ -91,8 +91,8 @@ func FsmOnRequestButtonPress(btnFloor int, btnType elevio.ButtonType, elev eleva
 		switch dirnBehaviour.Behaviour {
 		case elevator.EB_DoorOpen:
 			elevio.SetDoorOpenLamp(true)
-			timer.TimerStart(elev.Config.DoorOpenDurationS)
-			elev = requests.RequestsClearAtCurrentFloor(elev)
+			timer.TimerStart(elev.Config.DoorOpenDuration)
+			elev = requests.RequestsClearAtCurrentFloor(elev, nil)
 
 		case elevator.EB_Moving:
 			elevio.SetMotorDirection(elev.Dirn)
@@ -118,7 +118,7 @@ func FsmOnFloorArrival(newFloor int, elev elevator.Elevator) elevator.Elevator {
 	// Oppdater heisens nåværende etasje
 	elev.Floor = newFloor
 
-	// Oppdater etasjeindikatoren
+	// Oppdater etasjeindikatorenhttps://github.com/TTK4145?q=driver
 	elevio.SetFloorIndicator(elev.Floor)
 
 	switch elev.Behaviour {
@@ -132,10 +132,10 @@ func FsmOnFloorArrival(newFloor int, elev elevator.Elevator) elevator.Elevator {
 			elevio.SetDoorOpenLamp(true)
 
 			// Rydd forespørsler for nåværende etasje
-			elev = requests.RequestsClearAtCurrentFloor(elev)
+			elev = requests.RequestsClearAtCurrentFloor(elev, nil)
 
 			// Start timer for å holde dørene åpne
-			timer.TimerStart(elev.Config.DoorOpenDurationS)
+			timer.TimerStart(elev.Config.DoorOpenDuration)
 
 			// Oppdater knappelysene
 			elev.Requests = SetAllLights(elev.Requests)
@@ -168,8 +168,8 @@ func FsmOnDoorTimeout(elev elevator.Elevator) elevator.Elevator{
 		switch elev.Behaviour {
 		case elevator.ElevatorBehaviour(elevator.EB_DoorOpen):
 			// Start timer på nytt og rydd forespørsler i nåværende etasje
-			timer.TimerStart(elev.Config.DoorOpenDurationS)
-			elev = requests.RequestsClearAtCurrentFloor(elev)
+			timer.TimerStart(elev.Config.DoorOpenDuration)
+			elev = requests.RequestsClearAtCurrentFloor(elev, nil)
 			elev.Requests = SetAllLights(elev.Requests)
 
 		case elevator.ElevatorBehaviour(elevator.EB_Moving), elevator.ElevatorBehaviour(elevator.EB_Idle):

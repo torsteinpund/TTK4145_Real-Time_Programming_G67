@@ -35,7 +35,8 @@ type Elevator struct {
 
 	Config struct { // Konfigurasjon for heisen
 		ClearRequestVariant ClearRequestVariant
-		DoorOpenDurationS   float64
+		DoorOpenDuration   float64
+		TimeBetweenFloors    float64
 	}
 }
 
@@ -46,10 +47,12 @@ func ElevatorUninitialized() Elevator {
 		Behaviour: ElevatorBehaviour(EB_Idle),
 		Config: struct {
 			ClearRequestVariant ClearRequestVariant
-			DoorOpenDurationS   float64
+			DoorOpenDuration   float64
+			TimeBetweenFloors    float64
 		}{
 			ClearRequestVariant: CV_All,
-			DoorOpenDurationS:   3.0,
+			DoorOpenDuration:   3.0,
+			TimeBetweenFloors: 2.0,
 		},
 		Requests: [NUMFLOORS][NUMBUTTONTYPE]int{}, // Initialiser forespørslene til 0
 	}
@@ -68,10 +71,13 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
 		Behaviour: ElevatorBehaviour(EB_Idle),                // Heisen starter i "Idle"-tilstand
 		Config: struct {                   // Konfigurasjon
 			ClearRequestVariant ClearRequestVariant
-			DoorOpenDurationS   float64
+			DoorOpenDuration   float64
+			TimeBetweenFloors    float64
+			
 		}{
 			ClearRequestVariant: CV_All,  // Standard klareringsvariant
-			DoorOpenDurationS:   3.0,    // Standard tid dørene forblir åpne
+			DoorOpenDuration:   3.0,    // Standard tid dørene forblir åpne
+			TimeBetweenFloors: 2.0,      // Standard tid mellom etasjene
 		},
 	}
 

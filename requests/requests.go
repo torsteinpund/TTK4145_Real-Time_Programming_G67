@@ -12,6 +12,9 @@ type DirnBehaviourPair struct {
 	Behaviour elevio.Behaviour
 }
 
+type ClearRequestCallback func(button elevio.ButtonType, floor int)
+
+
 func RequestsAbove(req [elevator.NUMFLOORS][elevator.NUMBUTTONTYPE]int, floor int) bool {
 	// Iterer gjennom etasjene over nåværende etasje
 	for i := floor + 1; i < elevio.NumFloors; i++ {
@@ -122,13 +125,19 @@ func RequestsShouldClearImmediately(elev elevator.Elevator, btnFloor int, btnTyp
 	}
 }
 
-func RequestsClearAtCurrentFloor(elev elevator.Elevator) elevator.Elevator {
+func RequestsClearAtCurrentFloor(elev elevator.Elevator, onClearedRequest func(elevio.ButtonType, int)) elevator.Elevator {
 	switch elev.Config.ClearRequestVariant {
 	case elevator.CV_All:
 		// Fjern alle forespørsler i den nåværende etasjen
 		for btn := 0; btn < elevio.NumButtonTypes; btn++ {
-			elev.Requests[elev.Floor][btn] = 0
+			if elev.Requests[elev.Floor][btn] == 1 {
+				elev.Requests[elev.Floor][btn] = 0
+				if onClearedRequest != nil {
+					onClearedRequest(elevio.ButtonType(btn), elev.Floor)
+				}
+			}
 		}
+
 
 	case elevator.CV_InDirn:
 		// Fjern forespørsler fra innsiden av heisen
