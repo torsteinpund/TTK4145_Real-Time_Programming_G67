@@ -5,51 +5,51 @@ import (
 	"net"
 	"sync"
 	"time"
+	. "Driver-go/types"
 )
 
 const _pollRate = 20 * time.Millisecond
 
 var _initialized bool = false
-var NumFloors int = 4
-var NumButtonTypes int = 3
+// var NumFloors int = 4
+// var NumButtonTypes int = 3
 var _mtx sync.Mutex
 var _conn net.Conn
 
-type MotorDirection int
+// type MotorDirection int
 
-const (
-	MD_Up   MotorDirection = 1
-	MD_Down MotorDirection = -1
-	MD_Stop MotorDirection = 0
-)
+// const (
+// 	MD_Up   MotorDirection = 1
+// 	MD_Down MotorDirection = -1
+// 	MD_Stop MotorDirection = 0
+// )
 
-type Direction int
-type Behaviour int
-type ButtonType int
+// type Direction int
+// type Behaviour int
+// type ButtonType int
 
-const (
-	D_Up   Direction = 1
-	D_Down Direction = -1
-	D_Stop Direction = 0
-)
+// const (
+// 	D_Up   Direction = 1
+// 	D_Down Direction = -1
+// 	D_Stop Direction = 0
+// )
 
-const (
-	BT_HallUp   ButtonType = 0
-	BT_HallDown ButtonType = 1
-	BT_Cab      ButtonType = 2
-)
+// const (
+// 	BT_HallUp   ButtonType = 0
+// 	BT_HallDown ButtonType = 1
+// 	BT_Cab      ButtonType = 2
+// )
 
-type ButtonEvent struct {
-	Floor  int
-	Button ButtonType
-}
+// type ButtonEvent struct {
+// 	Floor  int
+// 	Button ButtonType
+// }
 
-func Init(addr string, numFloors int) {
+func InitHardwareConnection(addr string) {
 	if _initialized {
 		fmt.Println("Driver already initialized!")
 		return
 	}
-	NumFloors = numFloors
 	_mtx = sync.Mutex{}
 	var err error
 	_conn, err = net.Dial("tcp", addr)
@@ -58,6 +58,61 @@ func Init(addr string, numFloors int) {
 	}
 	_initialized = true
 }
+
+func ElevatorUninitialized() Elevator {
+	return Elevator{
+		Floor:     -1,
+		Dirn:      MD_Stop,
+		Behaviour: ElevatorBehaviour(EB_Idle),
+		Config: struct {
+			ClearRequestVariant ClearRequestVariant
+			DoorOpenDuration   float64
+			TimeBetweenFloors    float64
+		}{
+			ClearRequestVariant: CV_All,
+			DoorOpenDuration:   3.0,
+			TimeBetweenFloors: 2.0,
+		},
+		Requests: [NUMFLOORS][NUMBUTTONTYPE]int{}, 
+	}
+}
+
+
+func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
+	if numFloors > NUMFLOORS || numButtonTypes > NUMBUTTONTYPE {
+		fmt.Println("Error: Configuration exceeds allowed array size.")
+		return Elevator{}
+	}
+
+	elev = Elevator{
+		// Start on an invalid floor
+		Floor:    -1,                     
+		Dirn:     MD_Stop,          
+		Behaviour: ElevatorBehaviour(EB_Idle),               
+		Config: struct {                   
+			ClearRequestVariant ClearRequestVariant
+			DoorOpenDuration   float64
+			TimeBetweenFloors    float64
+			
+		}{
+			ClearRequestVariant: CV_All,  
+			DoorOpenDuration:   3.0,    
+			TimeBetweenFloors: 2.0,      
+		},
+	}
+
+	// Initialize request matrix
+	for i := 0; i < NUMFLOORS; i++ {
+		for j := 0; j < NUMBUTTONTYPE; j++ {
+			elev.Requests[i][j] = 0
+		}
+	}
+
+	fmt.Println("Elevator initialized:")
+	fmt.Printf("%+v\n", elev)
+	return elev
+}
+
 
 func SetMotorDirection(dir MotorDirection) {
 	write([4]byte{1, byte(dir), 0, 0})
@@ -80,14 +135,14 @@ func SetStopLamp(value bool) {
 }
 
 func PollButtons(receiver chan<- ButtonEvent) {
-	prev := make([][3]bool, NumFloors)
+	prev := make([][3]bool, NUMFLOORS)
 	for {
 		time.Sleep(_pollRate)
-		for f := 0; f < NumFloors; f++ {
+		for f := 0; f < NUMFLOORS; f++ {
 			for b := ButtonType(0); b < 3; b++ {
 				v := GetButton(b, f)
 				if v != prev[f][b] && v != false {
-					receiver <- ButtonEvent{f, ButtonType(b)}
+					receiver <- ButtonEvent{Floor:f, Button:ButtonType(b)}
 				}
 				prev[f][b] = v
 			}

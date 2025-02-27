@@ -9,39 +9,24 @@ var (
 	timerActive  bool
 )
 
-// getWallTime returnerer veggklokken som et flyttall
+// getWallTime returns the current time 
 func getWallTime() float64 {
 	now := time.Now()
 	return float64(now.Unix()) + float64(now.Nanosecond())*1e-9
 }
 
-// timerStart starter en timer med en spesifisert varighet i sekunder
+// timerStart starts a timer with the given duration
 func TimerStart(duration float64) {
 	timerEndTime = getWallTime() + duration
 	timerActive = true
 }
 
-// timerStop stopper den aktive timeren
+// timerStop stops the timer
 func TimerStop() {
 	timerActive = false
 }
 
-// timerTimedOut sjekker om timeren har gått ut
+// timerTimedOut checks if the timer has timed out
 func TimerTimedOut() bool {
 	return timerActive && getWallTime() > timerEndTime
 }
-
-
-
-/*var timerActive bool = false
-
-func timerActivate(duration time.Duration) {
-	timerActive = true
-
-	timer := time.NewTimer(duration * time.Second)
-	fmt.Println("Timer started")
-	<-timer.C
-	fmt.Println("Timer stopped")
-	timerActive = false
-}
-*/

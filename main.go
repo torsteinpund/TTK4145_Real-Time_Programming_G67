@@ -1,44 +1,42 @@
 package main
 
 import (
+	. "Driver-go/types"
 	"Driver-go/elevio"
 	"Driver-go/fsm"
-	"Driver-go/elevator"
+	"Driver-go/network/bcast"
 	"Driver-go/timer"
 	"fmt"
 	"time"
-	"Driver-go/network/bcast"
 )
-
-
 
 func main() {
 	fmt.Println("Started!")
 
 	// Initialize elevator with hardware connection
 	numFloors := 4
-	elevio.Init("localhost:15657", numFloors) // Connect to hardware server
-	emptyElev := elevator.Elevator{}
-	elev := elevator.InitElevator(numFloors, elevio.NumButtonTypes, emptyElev)
+	elevio.InitHardwareConnection("localhost:15657", ) // Connect to hardware server
+	emptyElev := Elevator{}
+	elev := elevio.InitElevator(numFloors, NUMBUTTONTYPE, emptyElev)
 
 	// Check if elevator starts between floors
 	if initialFloor := elevio.GetFloor(); initialFloor == -1 {
 		fmt.Println("Elevator is between floors on startup. Running initialization...")
-		elev.Behaviour, elev.Dirn  = fsm.FsmOnInitBetweenFloors()
+		elev.Behaviour, elev.Dirn = fsm.FsmInitBetweenFloors()
 	} else {
 		// If the elevator starts at a valid floor, initialize its state
-		elev = fsm.FsmOnFloorArrival(initialFloor, elev)
+		elev = fsm.FsmFloorArrival(initialFloor, elev)
 	}
 
 	// Polling rate configuration
 	inputPollRate := 25 * time.Millisecond // Adjust as needed
 
 	// Event channels for hardware events
-	buttonPressCh := make(chan elevio.ButtonEvent)
+	buttonPressCh := make(chan ButtonEvent)
 	floorSensorCh := make(chan int)
 	stopButtonCh := make(chan bool)
 	obstructionSwitchCh := make(chan bool)
-	receivedButtonPressCh := make(chan elevio.ButtonEvent)
+	receivedButtonPressCh := make(chan ButtonEvent)
 	// Start polling goroutines
 	go elevio.PollButtons(buttonPressCh)
 	go elevio.PollFloorSensor(floorSensorCh)
@@ -54,7 +52,7 @@ func main() {
 	//var timerEndTime float64
 
 	obstructionActive := false
-	lastKnownDirection := elevio.MotorDirection(0)
+	lastKnownDirection := MotorDirection(0)
 	stop := false
 
 	// Main event loop
@@ -62,7 +60,7 @@ func main() {
 		select {
 		case buttonEvent := <-receivedButtonPressCh:
 			// Handle button press event
-			fmt.Printf("Received: %#v\n",buttonEvent.Floor)
+			fmt.Printf("Received: %#v\n", buttonEvent.Floor)
 			if stop {
 				elevio.SetMotorDirection(lastKnownDirection)
 				stop = false
@@ -70,14 +68,14 @@ func main() {
 			fmt.Println("Button pressed!")
 
 			fmt.Printf("Button pressed at floor %d, button type %d\n", buttonEvent.Floor, buttonEvent.Button)
-			elev = fsm.FsmOnRequestButtonPress(buttonEvent.Floor, buttonEvent.Button, elev)
+			elev = fsm.FsmButtonPressed(buttonEvent.Floor, buttonEvent.Button, elev)
 
 		case currentFloor := <-floorSensorCh:
 			// Handle floor sensor event
 
 			if currentFloor != prevFloor {
 				fmt.Printf("Arrived at floor %d\n", currentFloor)
-				elev = fsm.FsmOnFloorArrival(currentFloor, elev)
+				elev = fsm.FsmFloorArrival(currentFloor, elev)
 				elevio.SetFloorIndicator(currentFloor) // Update floor indicator lamp
 
 				if !obstructionActive {
@@ -109,7 +107,7 @@ func main() {
 			// Periodic tasks (check timer)
 			if timer.TimerTimedOut() {
 				fmt.Println("Door timeout occurred.")
-				elev = fsm.FsmOnDoorTimeout(elev)
+				elev = fsm.FsmDoorTimeout(elev)
 				timer.TimerStop() // Reset the timer after timeout handling
 			}
 		case obstruction := <-obstructionSwitchCh:
@@ -126,189 +124,3 @@ func main() {
 		}
 	}
 }
-
-/*package main
-
-import (
-	"Driver-go/elevio"
-	"fmt"
-	"time"
-)
-
-type InputDevice struct{}
-
-// RequestButton returnerer statusen til en knapp (trykket eller ikke)
-func (d InputDevice) RequestButton(floor, button int) int {
-	// Simuler knappestatus (returner 0 eller 1)
-	// I en ekte implementasjon ville du lese fra maskinvare
-	return 0 // Endre dette til faktisk logikk
-}
-
-// FloorSensor returnerer nåværende etasje som sensoren oppdager
-func (d InputDevice) FloorSensor() int {
-	// Simuler etasjeavlesning
-	// Returner -1 hvis ingen etasje oppdages
-	return -1 // Endre dette til faktisk logikk
-}
-
-// GetInputDevice returnerer en instans av InputDevice
-func GetInputDevice() InputDevice {
-	return InputDevice{}
-}
-
-
-func main() {
-
-
-	fmt.Println("Started!")
-	numFloors := 4
-
-	initElevator(elevio.NumFloors, elevio.NumButtonTypes)
-
-	elevio.Init("localhost:15657", numFloors)
-
-	// Initialiser polling-rate
-	inputPollRateMs := 25
-	loadConfig("elevator.con", &inputPollRateMs)
-
-	// Hent input-enhet
-	input := GetInputDevice()
-
-	// Sjekk initialisering mellom etasjer
-	if input.FloorSensor() == -1 {
-		fsmOnInitBetweenFloors()
-	}
-
-	// Statisk lagring for tidligere tilstander
-	prevRequestButtons := make([][]int, elevio.NumFloors)
-	for i := range prevRequestButtons {
-		prevRequestButtons[i] = make([]int, elevio.NumButtonTypes)
-	}
-	prevFloor := -1
-
-	// Kanaler for håndtering av events
-	buttonPressCh := make(chan struct{})
-	floorSensorCh := make(chan struct{})
-	timerCh := make(chan struct{})
-
-	// Start gorutiner for eventhåndtering
-	go func() {
-		for {
-			// Knappetrykk
-			for f := 0; f < elevio.NumFloors; f++ {
-				for b := 0; b < elevio.NumButtonTypes; b++ {
-					v := input.RequestButton(f, b)
-					if v != 0 && v != prevRequestButtons[f][b] {
-						buttonPressCh <- struct{}{}
-						fsmOnRequestButtonPress(f, elevio.ButtonType(b))
-					}
-					prevRequestButtons[f][b] = v
-				}
-			}
-			time.Sleep(time.Duration(inputPollRateMs) * time.Millisecond)
-		}
-	}()
-
-	go func() {
-		for {
-			// Etasjesensor
-			currentFloor := input.FloorSensor()
-			if currentFloor != -1 && currentFloor != prevFloor {
-				floorSensorCh <- struct{}{}
-				fsmOnFloorArrival(currentFloor)
-			}
-			prevFloor = currentFloor
-			time.Sleep(time.Duration(inputPollRateMs) * time.Millisecond)
-		}
-	}()
-
-	go func() {
-		for {
-			// Timer
-			if timerTimedOut() {
-				timerCh <- struct{}{}
-				timerStop()
-				fsmOnDoorTimeout()
-			}
-			time.Sleep(time.Duration(inputPollRateMs) * time.Millisecond)
-		}
-	}()
-
-	// Hovedløkke med select-case
-	for {
-		select {
-		case <-buttonPressCh:
-			// Knappetrykk håndteres i gorutinen
-		case <-floorSensorCh:
-			// Etasjehåndtering skjer i gorutinen
-		case <-timerCh:
-			// Timerhåndtering skjer i gorutinen
-		}
-	}
-}
-
-// Ekstra hjelpefunksjoner
-
-// loadConfig simulerer lasting av konfigurasjonsverdier
-func loadConfig(filename string, inputPollRateMs *int) {
-	// Simuler lasting fra en fil
-	fmt.Printf("Loading configuration from %s\n", filename)
-	*inputPollRateMs = 25 // Standardverdi
-}
-
-
-/*func main() {
-
-	numFloors := 4
-
-	elevio.Init("localhost:15657", numFloors)
-
-	var d elevio.MotorDirection = elevio.MD_Up
-	elevio.SetMotorDirection(d)
-
-	drv_buttons := make(chan elevio.ButtonEvent)
-	drv_floors := make(chan int)
-	drv_obstr := make(chan bool)
-	drv_stop := make(chan bool)
-
-	go elevio.PollButtons(drv_buttons)
-	go elevio.PollFloorSensor(drv_floors)
-	go elevio.PollObstructionSwitch(drv_obstr)
-	go elevio.PollStopButton(drv_stop)
-
-	go timerActivate(5)
-
-	for {
-		select {
-		case a := <-drv_buttons:
-			fmt.Pselect {rintf("%+v\n", a)
-			elevio.SetButtonLamp(a.Button, a.Floor, true)
-
-		case a := <-drv_floors:
-			fmt.Printf("%+v\n", a)
-			if a == numFloors-1 {
-				d = elevio.MD_Down
-			} else if a == 0 {
-				d = elevio.MD_Up
-			}
-			elevio.SetMotorDirection(d)
-
-		case a := <-drv_obstr:
-			fmt.Printf("%+v\n", a)
-			if a {
-				elevio.SetMotorDirection(elevio.MD_Stop)
-			} else {
-				elevio.SetMotorDirection(d)
-			}
-
-		case a := <-drv_stop:
-			fmt.Printf("%+v\n", a)
-			for f := 0; f < numFloors; f++ {
-				for b := elevio.ButtonType(0); b < 3; b++ {
-					elevio.SetButtonLamp(b, f, false)
-				}
-			}
-		}
-	}
-}
-*/

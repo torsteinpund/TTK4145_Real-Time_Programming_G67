@@ -8,6 +8,13 @@ import (
 	"time"
 )
 
+// type Peer struct {
+// 	ID   	string
+// 	Ip  string
+// 	UDPPort int
+// 	lastSeen time.Time
+// }
+
 type PeerUpdate struct {
 	Peers []string
 	New   string
@@ -64,7 +71,7 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 		// Removing dead connection
 		p.Lost = make([]string, 0)
 		for k, v := range lastSeen {
-			if time.Now().Sub(v) > timeout {
+			if time.Since(v) > timeout {
 				updated = true
 				p.Lost = append(p.Lost, k)
 				delete(lastSeen, k)
