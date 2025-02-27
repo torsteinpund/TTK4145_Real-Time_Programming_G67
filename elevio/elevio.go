@@ -9,41 +9,10 @@ import (
 )
 
 const _pollRate = 20 * time.Millisecond
-
 var _initialized bool = false
-// var NumFloors int = 4
-// var NumButtonTypes int = 3
 var _mtx sync.Mutex
 var _conn net.Conn
 
-// type MotorDirection int
-
-// const (
-// 	MD_Up   MotorDirection = 1
-// 	MD_Down MotorDirection = -1
-// 	MD_Stop MotorDirection = 0
-// )
-
-// type Direction int
-// type Behaviour int
-// type ButtonType int
-
-// const (
-// 	D_Up   Direction = 1
-// 	D_Down Direction = -1
-// 	D_Stop Direction = 0
-// )
-
-// const (
-// 	BT_HallUp   ButtonType = 0
-// 	BT_HallDown ButtonType = 1
-// 	BT_Cab      ButtonType = 2
-// )
-
-// type ButtonEvent struct {
-// 	Floor  int
-// 	Button ButtonType
-// }
 
 func InitHardwareConnection(addr string) {
 	if _initialized {
@@ -73,7 +42,7 @@ func ElevatorUninitialized() Elevator {
 			DoorOpenDuration:   3.0,
 			TimeBetweenFloors: 2.0,
 		},
-		Requests: [NUMFLOORS][NUMBUTTONTYPE]int{}, 
+		Requests: [NUMFLOORS][NUMBUTTONTYPE]bool{}, 
 	}
 }
 
@@ -104,7 +73,7 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
 	// Initialize request matrix
 	for i := 0; i < NUMFLOORS; i++ {
 		for j := 0; j < NUMBUTTONTYPE; j++ {
-			elev.Requests[i][j] = 0
+			elev.Requests[i][j] = false
 		}
 	}
 
@@ -135,14 +104,16 @@ func SetStopLamp(value bool) {
 }
 
 func PollButtons(receiver chan<- ButtonEvent) {
+	
 	prev := make([][3]bool, NUMFLOORS)
 	for {
 		time.Sleep(_pollRate)
 		for f := 0; f < NUMFLOORS; f++ {
 			for b := ButtonType(0); b < 3; b++ {
 				v := GetButton(b, f)
-				if v != prev[f][b] && v != false {
+				if v != prev[f][b] && v {
 					receiver <- ButtonEvent{Floor:f, Button:ButtonType(b)}
+					print("Button pressed: ")
 				}
 				prev[f][b] = v
 			}

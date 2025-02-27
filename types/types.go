@@ -1,9 +1,8 @@
 package types
 
-// import (
-// 	"fmt"
-// 	"strings"
-// )
+import (
+
+)
 
 
 const (
@@ -56,6 +55,11 @@ type ButtonEvent struct {
 	Button ButtonType
 }
 
+type OrderEvent struct {
+	ElevatorID string
+	Completed bool
+	Orders []ButtonEvent
+}
 
 type DirnBehaviourPair struct {
 	Dirn      MotorDirection
@@ -65,12 +69,15 @@ type DirnBehaviourPair struct {
 
 type ClearRequestCallback func(button ButtonType, floor int)
 
+type RequestsMatrix [NUMFLOORS][NUMBUTTONTYPE]bool
 
+type GlobalOrderMap map[string]RequestsMatrix
 
 type Elevator struct {
+	ID        string
 	Floor     int                
 	Dirn      MotorDirection 
-	Requests  [NUMFLOORS][NUMBUTTONTYPE]int 
+	Requests  RequestsMatrix
 	Behaviour ElevatorBehaviour
 	Config struct { 
 		ClearRequestVariant ClearRequestVariant
@@ -79,3 +86,8 @@ type Elevator struct {
 	}
 }
 
+type NetworkMessage struct {
+	MsgType string
+	MsgData interface{}
+	Role 	string
+}

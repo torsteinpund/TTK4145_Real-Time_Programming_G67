@@ -1,9 +1,29 @@
 package orderHandler
 
 import (
-	. "Driver-go/types"
+	"Driver-go/lights"
 	"Driver-go/requests"
+	. "Driver-go/types"
+	// "net"
 )
+
+// func SetAllLocalLights(req [NUMFLOORS][NUMBUTTONTYPE]int) [NUMFLOORS][NUMBUTTONTYPE]int {
+// 	for floor := 0; floor < NUMFLOORS; floor++ {
+// 		for btn := 0; btn < NUMBUTTONTYPE; btn++ {
+// 			state := req[floor][btn]
+// 			elevio.SetButtonLamp(ButtonType(btn), floor, state == 1)
+// 		}
+// 	}
+// 	return req
+// }
+
+type orderChannels struct {
+	LocalOrderChannel       chan RequestsMatrix
+	LocalLightsChannel      chan RequestsMatrix
+	OrdersFromMasterChannel chan GlobalOrderMap
+	OrdersToMasterChannel   chan NetworkMessage
+	ButtenEventChannel      chan ButtonEvent
+}
 
 func timeToServeRequest(e_old Elevator, receivedCh <-chan ButtonEvent) float64 {
 	e := e_old
@@ -11,7 +31,7 @@ func timeToServeRequest(e_old Elevator, receivedCh <-chan ButtonEvent) float64 {
 	b := buttenEvent.Button
 	f := buttenEvent.Floor
 
-	e.Requests[f][b] = 1
+	e.Requests[f][b] = true
 	arrivedAtRequest := false
 
 	ifEqual := func(inner_b ButtonType, inner_f int) {
@@ -46,5 +66,31 @@ func timeToServeRequest(e_old Elevator, receivedCh <-chan ButtonEvent) float64 {
 		}
 		e.Floor += int(e.Dirn)
 		duration += e.Config.TimeBetweenFloors
+	}
+}
+
+func orderHandler(elev Elevator, ch orderChannels, ID string) {
+	ordersFromMaster := make(GlobalOrderMap)
+
+	for {
+		select {
+		case buttonEvent := <-ch.ButtenEventChannel:
+			button := []ButtonEvent{buttonEvent}
+			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
+			newOrderEvent := NetworkMessage{MsgType: "OrderEvent", MsgData: orderEvent, Role: "Master"}
+			ch.OrdersToMasterChannel <- newOrderEvent
+
+		case ordersFromMaster = <-ch.OrdersFromMasterChannel:
+			localRequests := ordersFromMaster[ID]
+			ch.LocalOrderChannel <- localRequests
+			localLights := localRequests
+
+			for _, requests := range ordersFromMaster {
+				localLights = lights.SetHallLights(requests)
+
+			}
+
+			ch.LocalLightsChannel <- localLights
+		}
 	}
 }

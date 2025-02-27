@@ -6,10 +6,10 @@ import (
 
 
 
-func RequestsAbove(req [NUMFLOORS][NUMBUTTONTYPE]int, floor int) bool {
+func RequestsAbove(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 	for i := floor + 1; i < NUMFLOORS; i++ {
 		for j := 0; j < NUMBUTTONTYPE; j++ {
-			if req[i][j] == 1 { 
+			if req[i][j] { 
 				return true
 			}
 		}
@@ -17,10 +17,10 @@ func RequestsAbove(req [NUMFLOORS][NUMBUTTONTYPE]int, floor int) bool {
 	return false
 }
 
-func RequestsBelow(req [NUMFLOORS][NUMBUTTONTYPE]int, floor int) bool {
+func RequestsBelow(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 	for i := 0; i < floor; i++ {
 		for j := 0; j < NUMBUTTONTYPE; j++ {
-			if req[i][j] == 1 { 
+			if req[i][j] { 
 				return true
 			}
 		}
@@ -29,9 +29,9 @@ func RequestsBelow(req [NUMFLOORS][NUMBUTTONTYPE]int, floor int) bool {
 }
 
 
-func RequestsHere(req [NUMFLOORS][NUMBUTTONTYPE]int, floor int) bool {
+func RequestsHere(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 	for j := 0; j < NUMBUTTONTYPE; j++ {
-		if req[floor][j] == 1 { 
+		if req[floor][j] { 
 			return true
 		}
 	}
@@ -79,12 +79,12 @@ func RequestsChooseDirection(elev Elevator) DirnBehaviourPair {
 func RequestsShouldStop(elev Elevator) bool {
 	switch elev.Dirn {
 	case MD_Down:
-		return elev.Requests[elev.Floor][BT_HallDown] == 1 ||
-			elev.Requests[elev.Floor][BT_Cab] == 1 ||
+		return elev.Requests[elev.Floor][BT_HallDown] ||
+			elev.Requests[elev.Floor][BT_Cab]  ||
 			!RequestsBelow(elev.Requests, elev.Floor)
 	case MD_Up:
-		return elev.Requests[elev.Floor][BT_HallUp] == 1 ||
-			elev.Requests[elev.Floor][BT_Cab] == 1 ||
+		return elev.Requests[elev.Floor][BT_HallUp]  ||
+			elev.Requests[elev.Floor][BT_Cab]  ||
 			!RequestsAbove(elev.Requests, elev.Floor)
 	case MD_Stop:
 		fallthrough 
@@ -113,8 +113,8 @@ func RequestsClearAtCurrentFloor(elev Elevator, onClearedRequest func(ButtonType
 	switch elev.Config.ClearRequestVariant {
 	case CV_All:
 		for btn := 0; btn < NUMBUTTONTYPE; btn++ {
-			if elev.Requests[elev.Floor][btn] == 1 {
-				elev.Requests[elev.Floor][btn] = 0
+			if elev.Requests[elev.Floor][btn]  {
+				elev.Requests[elev.Floor][btn] = false
 				if onClearedRequest != nil {
 					onClearedRequest(ButtonType(btn), elev.Floor)
 				}
@@ -123,26 +123,26 @@ func RequestsClearAtCurrentFloor(elev Elevator, onClearedRequest func(ButtonType
 
 
 	case CV_InDirn:
-		elev.Requests[elev.Floor][BT_Cab] = 0
+		elev.Requests[elev.Floor][BT_Cab] = false
 
 		switch elev.Dirn {
 		case MD_Up:
-			if !RequestsAbove(elev.Requests, elev.Floor) && elev.Requests[elev.Floor][BT_Cab] == 0 {
-				elev.Requests[elev.Floor][BT_Cab] = 0
+			if !RequestsAbove(elev.Requests, elev.Floor) && !elev.Requests[elev.Floor][BT_Cab]{
+				elev.Requests[elev.Floor][BT_Cab] = false
 			}
-			elev.Requests[elev.Floor][BT_Cab] = 0
+			elev.Requests[elev.Floor][BT_Cab] = false
 
 		case MD_Down:
-			if !RequestsBelow(elev.Requests, elev.Floor) && elev.Requests[elev.Floor][BT_Cab] == 0 {
-				elev.Requests[elev.Floor][BT_Cab] = 0
+			if !RequestsBelow(elev.Requests, elev.Floor) && !elev.Requests[elev.Floor][BT_Cab]{
+				elev.Requests[elev.Floor][BT_Cab] = false
 			}
-			elev.Requests[elev.Floor][BT_Cab] = 0
+			elev.Requests[elev.Floor][BT_Cab] = false
 
 		case MD_Stop:
 			fallthrough
 		default:
-			elev.Requests[elev.Floor][BT_HallUp] = 0
-			elev.Requests[elev.Floor][BT_HallDown] = 0
+			elev.Requests[elev.Floor][BT_HallUp] = false
+			elev.Requests[elev.Floor][BT_HallDown] = false
 		}
 	}
 	return elev 
