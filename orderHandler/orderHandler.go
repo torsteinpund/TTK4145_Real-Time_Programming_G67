@@ -17,17 +17,15 @@ import (
 // }
 
 type orderChannels struct {
-	LocalOrderChannel       chan RequestsMatrix
-	LocalLightsChannel      chan RequestsMatrix
+	LocalOrderChannel       chan OrderMatrix
+	LocalLightsChannel      chan OrderMatrix
 	OrdersFromMasterChannel chan GlobalOrderMap
 	OrdersToMasterChannel   chan NetworkMessage
 	ButtenEventChannel      chan ButtonEvent
-	FinishedFloorChannel 	chan int
+	FinishedFloorChannel    chan int
 }
 
-
-
-func orderHandler(ch orderChannels, ID string) {
+func OrderHandler(ch orderChannels, ID string) {
 	ordersFromMaster := make(GlobalOrderMap)
 
 	for {
@@ -35,7 +33,7 @@ func orderHandler(ch orderChannels, ID string) {
 		case buttonEvent := <-ch.ButtenEventChannel:
 			button := []ButtonEvent{buttonEvent}
 			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
-			newOrderEvent := NetworkMessage{MsgType: "New OrderEvent", MsgData: orderEvent, Role: "Master"}
+			newOrderEvent := NetworkMessage{MsgType: "New OrderEvent", MsgData: orderEvent, Receipient: Master}
 			ch.OrdersToMasterChannel <- newOrderEvent
 
 		case ordersFromMaster = <-ch.OrdersFromMasterChannel:
@@ -50,18 +48,18 @@ func orderHandler(ch orderChannels, ID string) {
 
 			ch.LocalLightsChannel <- localLights
 
-		case floor := <- ch.FinishedFloorChannel:
+		case floor := <-ch.FinishedFloorChannel:
 			orders := []ButtonEvent{}
-			for btn := 0; btn < NUMBUTTONTYPE; btn++{
+			for btn := 0; btn < NUMBUTTONTYPE; btn++ {
 				button := ButtonEvent{Floor: floor, Button: ButtonType(btn)}
 				orders = append(orders, button)
 
 			}
 
 			finishedOrder := OrderEvent{ElevatorID: ID, Completed: true, Orders: orders}
-			regFinishedOrder := NetworkMessage{MsgType: "Finished OrderEvent", MsgData: finishedOrder, Role: "Master"}
+			regFinishedOrder := NetworkMessage{MsgType: "Finished OrderEvent", MsgData: finishedOrder, Receipient: Master}
 			ch.OrdersToMasterChannel <- regFinishedOrder
-			
+
 		}
 	}
 }
