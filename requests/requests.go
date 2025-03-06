@@ -5,7 +5,7 @@ import (
 )
 
 
-
+// RequestsAbove determines if there are any requests above the current floor.
 func RequestsAbove(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 	for i := floor + 1; i < NUMFLOORS; i++ {
 		for j := 0; j < NUMBUTTONTYPE; j++ {
@@ -17,6 +17,8 @@ func RequestsAbove(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 	return false
 }
 
+
+// RequestsBelow determines if there are any requests below the current floor.
 func RequestsBelow(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 	for i := 0; i < floor; i++ {
 		for j := 0; j < NUMBUTTONTYPE; j++ {
@@ -29,6 +31,7 @@ func RequestsBelow(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 }
 
 
+// RequestsHere determines if there are any requests at the current floor.
 func RequestsHere(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 	for j := 0; j < NUMBUTTONTYPE; j++ {
 		if req[floor][j] { 
@@ -39,6 +42,7 @@ func RequestsHere(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 }
 
 
+// RequestsChooseDirection chooses the most suitable direction for the elevator to move in.
 func RequestsChooseDirection(elev Elevator) DirnBehaviourPair {
 	switch elev.Dirn {
 	case MD_Up:
@@ -76,6 +80,8 @@ func RequestsChooseDirection(elev Elevator) DirnBehaviourPair {
 	}
 }
 
+
+// RequestsShouldStop determines if the elevator should stop at the current floor.
 func RequestsShouldStop(elev Elevator) bool {
 	switch elev.Dirn {
 	case MD_Down:
@@ -93,6 +99,8 @@ func RequestsShouldStop(elev Elevator) bool {
 	}
 }
 
+
+// RequestsShouldClearImmediately determines if the elevator should clear a request immediately when it arrives at the floor.
 func RequestsShouldClearImmediately(elev Elevator, btnFloor int, btnType ButtonType) bool {
 	switch elev.Config.ClearRequestVariant {
 	case CV_All:
@@ -109,6 +117,8 @@ func RequestsShouldClearImmediately(elev Elevator, btnFloor int, btnType ButtonT
 	}
 }
 
+
+// RequestsClearAtCurrentFloor clears all requests at the current floor according to the elevator's configuration.
 func RequestsClearAtCurrentFloor(elev Elevator, onClearedRequest func(ButtonType, int)) Elevator {
 	switch elev.Config.ClearRequestVariant {
 	case CV_All:

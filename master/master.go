@@ -2,14 +2,12 @@ package master
 
 import (
 	. "Driver-go/types"
-	//"encoding/json"
 	"fmt"
-	//"os/exec"
-	//"Driver-go/cost"
 	"math"
 	"strings"
 )
 
+// MasterChannels contains all the current channels used by the master
 type MasterChannels struct {
 	IsMasterChannel      chan bool
 	PeerLostChannel      chan string
@@ -28,13 +26,14 @@ type StateSingleElevator struct {
 }
 
 
-// Elevators represents the global state of all elevators, including global orders
+// AllElevators represents the global state of all elevators, including global orders
 // and the state of each individual elevator.
 type AllElevators struct {
 	GlobalOrders [NUMFLOORS][NUMBUTTONTYPE - 1]bool
 	States       map[string]StateSingleElevator
 }
 
+//RunMaster runs the master
 func RunMaster(ID string, channel MasterChannels) {
 	fmt.Println("Running master...")
 
@@ -52,6 +51,7 @@ func RunMaster(ID string, channel MasterChannels) {
 	for {
 		select {
 
+		//If an peer is lost we need to reassign the hallorders
 		case lostPeer := <-channel.PeerLostChannel:
 			elevator, exist := allElevatorStates[lostPeer]
 			fmt.Println("Houston, we have a problem! Master has lost a peer")
@@ -71,6 +71,7 @@ func RunMaster(ID string, channel MasterChannels) {
 			channel.ToSlavesChannel <- updatedOrders
 
 
+		//If a new order is registered we need to update the global orders and assign it to an elevator
 		case newOrderEvent := <- channel.RegisterOrderChannel:
 			elevatorID := newOrderEvent.ElevatorID
 			_, exist := allElevatorStates[elevatorID]
@@ -132,15 +133,14 @@ func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorState
 
 
 func assignHallRequests(input AllElevators) GlobalOrderMap {
-	// Initialiser output for hver heis med en matrise (NUMFLOORS x NUMHALLBUTTONS) satt til false.
+	// Initialize a map of order matrices for each elevator
 	globalOrderMap := GlobalOrderMap{}
 	for id := range input.States {
 		matrix := OrderMatrix{}
 		globalOrderMap[id] = matrix
 	}
 
-	// For hver etasje og for hver hall-knapp (opp og ned), hvis det er en aktiv forespørsel,
-	// finn den heisen med lavest "kostnad" og tildel denne forespørselen.
+	// For each floor and button, assign the order to the elevator with the lowest cost
 	for floor := 0; floor < NUMFLOORS; floor++ {
 		for btn := 0; btn < NUMHALLBUTTONS; btn++ {
 			if input.GlobalOrders[floor][btn] {
@@ -165,16 +165,15 @@ func assignHallRequests(input AllElevators) GlobalOrderMap {
 	return globalOrderMap
 }
 
+// A current computecost function, which is used to calculate the cost of a request for an elevator
+// We will use the function in cost.go when this works well
 func ComputeCost(elevator StateSingleElevator, requestFloor int, button int) float64 {
-	// Grunnkostnad basert på avstand (absolutt forskjell i etasjer)
 	cost := math.Abs(float64(elevator.Floor - requestFloor))
 
-	// Bonus: Hvis heisen er idle, trekk litt fra kostnaden
 	if strings.ToLower(elevator.ElevatorBehaviour) == "idle" {
 		cost -= 0.5
 	}
 
-	// Hvis heisens retning stemmer overens med forespurt knapp, trekk også litt fra
 	if button == 0 && strings.ToLower(elevator.Direction) == "up" {
 		cost -= 0.2
 	}

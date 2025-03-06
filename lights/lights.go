@@ -5,6 +5,7 @@ import (
 	. "Driver-go/types"
 )
 
+
 func SetHallLights(req [NUMFLOORS][NUMBUTTONTYPE]bool) [NUMFLOORS][NUMBUTTONTYPE]bool {
 	for floor := 0; floor < NUMFLOORS; floor++ {
 		for btn := 0; btn < NUMBUTTONTYPE-1; btn++ {
@@ -14,6 +15,7 @@ func SetHallLights(req [NUMFLOORS][NUMBUTTONTYPE]bool) [NUMFLOORS][NUMBUTTONTYPE
 	}
 	return req
 }
+
 
 func SetCabLights(req [NUMFLOORS][NUMBUTTONTYPE]bool) [NUMFLOORS][NUMBUTTONTYPE]bool {
 	for floor := 0; floor < NUMFLOORS; floor++ {

@@ -5,6 +5,11 @@ import(
 	"Driver-go/requests"
 )
 
+/*
+TimeToServeRequest simulates the time it takes for an elevator to serve a request.
+The function takes an elevator and a channel of ButtonEvents as input, and returns the time it takes to serve the request.
+The function is blocking, and will wait for a ButtonEvent to be received on the channel before starting the simulation.
+*/
 
 func TimeToServeRequest(e_old Elevator, receivedCh <-chan ButtonEvent) float64 {
 	e := e_old

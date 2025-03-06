@@ -3,19 +3,11 @@ package orderHandler
 import (
 	"Driver-go/lights"
 	. "Driver-go/types"
-	// "net"
 )
 
-// func SetAllLocalLights(req [NUMFLOORS][NUMBUTTONTYPE]int) [NUMFLOORS][NUMBUTTONTYPE]int {
-// 	for floor := 0; floor < NUMFLOORS; floor++ {
-// 		for btn := 0; btn < NUMBUTTONTYPE; btn++ {
-// 			state := req[floor][btn]
-// 			elevio.SetButtonLamp(ButtonType(btn), floor, state == 1)
-// 		}
-// 	}
-// 	return req
-// }
 
+// OrderHandler is a function that handles orders from the master and the local elevator.
+// The function takes a struct of channels as input, and runs an infinite loop that listens for incoming messages on the channels.
 type orderChannels struct {
 	LocalOrderChannel       chan OrderMatrix
 	LocalLightsChannel      chan OrderMatrix

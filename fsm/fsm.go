@@ -11,20 +11,6 @@ import (
 	"time"
 )
 
-// fsmInit initialiserer heisens tilstand og tilhørende systemer
-/*func fsmInit() {
-	// Initialiser heisen med standardverdier
-	elevator = ElevatorUninitialized()
-
-	// Last inn konfigurasjon fra fil (simulert)
-	err := loadConfig("con", &elevator)
-	if err != nil {
-		fmt.Println("Error loading configuration:", err)
-	}
-
-	// Initialiser output-enheten (simulert)
-	outputDevice = getOutputDevice()
-}*/
 
 func fsmInitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
 	// Move the elevator down until it reaches a floor
@@ -35,6 +21,7 @@ func fsmInitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
 	behaviour := ElevatorBehaviour(EB_Moving)
 	return behaviour, dirn
 }
+
 
 func fsmButtonPressed(btnFloor int, btnType ButtonType, elev Elevator) Elevator {
 	fmt.Printf("\n\nfsmOnRequestButtonPress(%d, %v)\n", btnFloor, btnType)
@@ -77,6 +64,7 @@ func fsmButtonPressed(btnFloor int, btnType ButtonType, elev Elevator) Elevator 
 	return elev
 }
 
+
 func fsmFloorArrival(newFloor int, elev Elevator) Elevator {
 	fmt.Printf("\n\nfsmOnFloorArrival(%d)\n", newFloor)
 
@@ -109,6 +97,7 @@ func fsmFloorArrival(newFloor int, elev Elevator) Elevator {
 	return elev
 }
 
+
 func fsmDoorTimeout(elev Elevator) Elevator {
 
 	switch elev.Behaviour {
@@ -139,6 +128,8 @@ func fsmDoorTimeout(elev Elevator) Elevator {
 	return elev
 }
 
+
+// FsmRun runs the elevator finite state machine
 func FsmRun() {
 	fmt.Println("Started!")
 
