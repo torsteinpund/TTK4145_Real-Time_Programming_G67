@@ -2,9 +2,9 @@ package master
 
 import (
 	. "Driver-go/types"
-	//"encoding/json"
+	"encoding/json"
 	"fmt"
-	//"os/exec"
+	"os/exec"
 	//"Driver-go/cost"
 	"math"
 	"strings"
@@ -23,19 +23,19 @@ type MasterChannels struct {
 
 // StateSingleElevator represents the state of a single elevator
 type StateSingleElevator struct {
+	ElevatorBehaviour string `json:"behaviour"`
 	Floor             int    `json:"floor"`
 	Direction         string `json:"direction"`
-	ElevatorBehaviour string `json:"behaviour"`
 	Available         bool
-	CabOrders         [NUMFLOORS]bool `json:"caborders"`
+	CabOrders         [NUMFLOORS]bool `json:"cabRequests"`
 }
 
 
 // Elevators represents the global state of all elevators, including global orders
 // and the state of each individual elevator.
 type AllElevators struct {
-	GlobalOrders [NUMFLOORS][NUMBUTTONTYPE - 1]bool
-	States       map[string]StateSingleElevator
+	GlobalOrders [NUMFLOORS][NUMHALLBUTTONS]bool	`json:"hallRequests"`
+	States       map[string]StateSingleElevator		`json:"states"`
 }
 
 func RunMaster(ID string, channel MasterChannels) {
@@ -129,9 +129,9 @@ func RunMaster(ID string, channel MasterChannels) {
 			}
 
 			allElevatorStates[state.ID] = StateSingleElevator{
+				state.Behaviour.ToString(),
 				state.Floor,
 				state.Dirn.ToString(),
-				state.Behaviour.ToString(),
 				state.Avaliable,
 				cabOrders}
 			if reassign {
@@ -151,9 +151,9 @@ func RunMaster(ID string, channel MasterChannels) {
 									cabOrders := [NUMFLOORS]bool{}
 									cabOrders[floor] = isOrder
 									allElevatorStates[elevatorID] = StateSingleElevator{
+										"idle",
 										0,
 										"down",
-										"idle",
 										true,
 										cabOrders}
 
@@ -191,7 +191,11 @@ func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorState
 	//Calculates which available elevators should take the hallorders of the lost peer
 	allElevators := AllElevators{GlobalOrders: hallOrders, States: elevatorMap}
 	globOrderMap := assignHallRequests(allElevators)
+	sendtJson := hallAssignerExec(globOrderMap)
 
+	if !sendtJson{
+		fmt.Println("Could not sendt")
+	}
 	//Add the cab-calls of the lost peer to the orderlist so it can be reminded of them when it returns
 	for _, elevatorID := range unavailableElevators {
 		orders := OrderMatrix{}
@@ -239,8 +243,45 @@ func assignHallRequests(input AllElevators) GlobalOrderMap {
 			}
 		}
 	}
+
+
+	
 	return globalOrderMap
 }
+
+
+func hallAssignerExec(input GlobalOrderMap)bool{
+	hraExecutable := "hall_request_assigner"
+
+    jsonBytes, err := json.Marshal(input)
+    if err != nil {
+        fmt.Println("json.Marshal error: ", err)
+        return false
+    }
+    
+    ret, err := exec.Command("../TTK4145_Real-Time_Programming_G67/"+hraExecutable, "-i", string(jsonBytes)).CombinedOutput()
+    if err != nil {
+        fmt.Println("exec.Command error: ", err)
+        fmt.Println(string(ret))
+        return false
+    }
+    
+    output := new(map[string][NUMFLOORS][NUMHALLBUTTONS]bool)
+    err = json.Unmarshal(ret, &output)
+    if err != nil {
+        fmt.Println("json.Unmarshal error: ", err)
+        return false
+    }
+        
+    fmt.Printf("output: \n")
+    for k, v := range *output {
+        fmt.Printf("%6v :  %+v\n", k, v)
+    }
+
+	return true
+	
+}
+
 
 func ComputeCost(elevator StateSingleElevator, requestFloor int, button int) float64 {
 	// Grunnkostnad basert på avstand (absolutt forskjell i etasjer)

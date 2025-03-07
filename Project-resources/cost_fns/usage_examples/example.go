@@ -4,7 +4,7 @@ package main
 import "os/exec"
 import "fmt"
 import "encoding/json"
-import "runtime"
+
 
 // Struct members must be public in order to be accessible by json.Marshal/.Unmarshal
 // This means they must start with a capital letter, so we need to use field renaming struct tags to make them camelCase
@@ -25,12 +25,8 @@ type HRAInput struct {
 
 func main(){
 
-    hraExecutable := ""
-    switch runtime.GOOS {
-        case "linux":   hraExecutable  = "hall_request_assigner"
-        case "windows": hraExecutable  = "hall_request_assigner.exe"
-        default:        panic("OS not supported")
-    }
+    hraExecutable := "hall_request_assigner"
+
 
     input := HRAInput{
         HallRequests: [][2]bool{{false, false}, {true, false}, {false, false}, {false, true}},

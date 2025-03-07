@@ -36,11 +36,11 @@ func determineMaster(masterID string, peersUpdate peers.PeerUpdate, isMasterChan
 }
 
 
-func UpdateMaster(isMasterChannel chan<- bool, peersUpdate peers.PeerUpdate){
-	peers := peersUpdate.PeersID
-	newMasterID := peers[0]
-	isMasterChannel <- true
-}
+// func UpdateMaster(isMasterChannel chan<- bool, peersUpdate peers.PeerUpdate){
+// 	peers := peersUpdate.PeersID
+// 	//newMasterID := peers[0]
+// 	isMasterChannel <- true
+// }
 
 
 func UpdateIDs(elevatorIDs []string) (int, string) {
