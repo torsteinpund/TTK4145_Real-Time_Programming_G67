@@ -1,7 +1,7 @@
 package lights
 
 import (
-	"Driver-go/elevio"
+	"Driver-go/singleElevatorDriver/elevio"
 	. "Driver-go/types"
 )
 

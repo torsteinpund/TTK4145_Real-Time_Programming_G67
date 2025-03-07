@@ -88,6 +88,16 @@ const (
 	Master
 )
 
+func (behaviour ElevatorBehaviour) ToString() string{
+	behavList := []string{"idle", "dooropen", "moving"}
+	return behavList[int(behaviour)]
+}
+
+func (dirn MotorDirection) ToString() string{
+	dirnList := []string{"down","stop","up"}
+	return dirnList[dirn+1]
+}
+
 type NetworkMessage struct {
 	MsgType    string
 	MsgData    interface{}

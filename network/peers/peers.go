@@ -8,15 +8,15 @@ import (
 	"time"
 )
 
-// type Peer struct {
-// 	ID   	string
-// 	Ip  string
-// 	UDPPort int
-// 	lastSeen time.Time
-// }
+type Peer struct {
+	ID   	string
+	Ip  string
+	UDPPort int
+	lastSeen time.Time
+}
 
 type PeerUpdate struct {
-	Peers []string
+	PeersID []string
 	New   string
 	Lost  []string
 }
@@ -25,6 +25,7 @@ const interval = 15 * time.Millisecond
 const timeout = 500 * time.Millisecond
 
 func Transmitter(port int, id string, transmitEnable <-chan bool) {
+
 
 	conn := conn.DialBroadcastUDP(port)
 	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))
@@ -80,13 +81,13 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 
 		// Sending update
 		if updated {
-			p.Peers = make([]string, 0, len(lastSeen))
+			p.PeersID = make([]string, 0, len(lastSeen))
 
 			for k, _ := range lastSeen {
-				p.Peers = append(p.Peers, k)
+				p.PeersID = append(p.PeersID, k)
 			}
 
-			sort.Strings(p.Peers)
+			sort.Strings(p.PeersID)
 			sort.Strings(p.Lost)
 			peerUpdateCh <- p
 		}

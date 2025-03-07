@@ -8,6 +8,8 @@ import (
 	//"Driver-go/cost"
 	"math"
 	"strings"
+	"time"
+	
 )
 
 type MasterChannels struct {
@@ -16,6 +18,7 @@ type MasterChannels struct {
 	ToSlavesChannel      chan NetworkMessage
 	RegisterOrderChannel chan OrderEvent
 	StateUpdateChannel   chan Elevator
+	OrderCopyResponseCh  chan GlobalOrderMap 
 }
 
 // StateSingleElevator represents the state of a single elevator
@@ -91,6 +94,80 @@ func RunMaster(ID string, channel MasterChannels) {
 			}
 			updatedGlobalOrders := reAssignOrders(hallOrders,allElevatorStates)
 			channel.ToSlavesChannel <- updatedGlobalOrders
+
+		case masterCheck:= <- channel.IsMasterChannel:
+			if masterCheck{
+				channel.ToSlavesChannel <- orderCopy //If the master is still running, the ordercopy is passed through the ToslavesChannel.
+			}else{
+				fmt.Println("Mayday, Mayday. The master elevator: " + ID +"is shutting the fuck down")
+			findNewMaster:
+				for{
+					select{
+					case masterCheck:= <-channel.IsMasterChannel:
+						if masterCheck {
+							channel.ToSlavesChannel <- orderCopy
+							time.Sleep(500*time.Millisecond)
+							fmt.Println("Master waking the fuck up")
+							break findNewMaster
+						}
+					}
+				}
+
+
+
+
+
+			}
+		case state := <- channel.StateUpdateChannel:
+			reassign := false
+			elevator,exist := allElevatorStates[state.ID]
+
+			cabOrders := [NUMFLOORS]bool{}
+			if exist {
+				cabOrders = elevator.CabOrders
+				reassign = elevator.Available != state.Avaliable //If the elevator is not available, we should reassign the order.
+			}
+
+			allElevatorStates[state.ID] = StateSingleElevator{
+				state.Floor,
+				state.Dirn.ToString(),
+				state.Behaviour.ToString(),
+				state.Avaliable,
+				cabOrders}
+			if reassign {
+				updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+				channel.ToSlavesChannel <- updatedOrders
+			}
+		case orderCopy := <-channel.OrderCopyResponseCh:
+			for elevatorID,orderMatrix := range orderCopy { //Loops through every elevator 
+				for floor, row := range orderMatrix {
+					for button, isOrder := range row {
+							switch ButtonType(button) {
+							case BT_HallUp,BT_HallDown:
+								hallOrders[floor][button] = hallOrders[floor][button] || isOrder
+							case BT_Cab:
+								elevator,exist := allElevatorStates[elevatorID]
+								if !exist {
+									cabOrders := [NUMFLOORS]bool{}
+									cabOrders[floor] = isOrder
+									allElevatorStates[elevatorID] = StateSingleElevator{
+										0,
+										"down",
+										"idle",
+										true,
+										cabOrders}
+
+								}else{
+									elevator.CabOrders[floor] = elevator.CabOrders[floor] || isOrder
+									allElevatorStates[elevatorID] = elevator
+								}	
+							}
+					}
+				}
+			}
+			updatedOrders := reAssignOrders(hallOrders,allElevatorStates)
+			channel.ToSlavesChannel <- updatedOrders
+		
 		}
 	}	
 }
@@ -183,4 +260,12 @@ func ComputeCost(elevator StateSingleElevator, requestFloor int, button int) flo
 	}
 
 	return cost
+}
+
+func getElevatorIDs(states map[string]StateSingleElevator) []string {
+	var ids []string
+	for id := range states {
+		ids = append(ids, id)
+	}
+	return ids
 }

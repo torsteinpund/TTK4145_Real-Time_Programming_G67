@@ -1,11 +1,11 @@
 package fsm
 
 import (
-	"Driver-go/elevio"
+	"Driver-go/singleElevatorDriver/elevio"
 	"Driver-go/lights"
 	"Driver-go/network/bcast"
-	"Driver-go/requests"
-	"Driver-go/timer"
+	"Driver-go/singleElevatorDriver/requests"
+	"Driver-go/singleElevatorDriver/timer"
 	. "Driver-go/types"
 	"fmt"
 	"time"
