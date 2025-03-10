@@ -15,7 +15,10 @@ type Peer struct {
 	lastSeen time.Time
 }
 
-type PeerUpdate struct {
+
+
+
+type PeersUpdate struct {
 	PeersID []string
 	New   string
 	Lost  []string
@@ -42,10 +45,10 @@ func Transmitter(port int, id string, transmitEnable <-chan bool) {
 	}
 }
 
-func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
+func Receiver(port int, peerUpdateCh chan<- PeersUpdate) {
 
 	var buf [1024]byte
-	var p PeerUpdate
+	var p PeersUpdate
 	lastSeen := make(map[string]time.Time)
 
 	conn := conn.DialBroadcastUDP(port)
@@ -68,8 +71,9 @@ func Receiver(port int, peerUpdateCh chan<- PeerUpdate) {
 
 			lastSeen[id] = time.Now()
 		}
-
+		
 		// Removing dead connection
+
 		p.Lost = make([]string, 0)
 		for k, v := range lastSeen {
 			if time.Since(v) > timeout {
