@@ -1,4 +1,4 @@
-package network
+package client
 
 import (
 	"Driver-go/network/peers"
@@ -7,58 +7,61 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-
 	//"Driver-go/network/bcast"
 )
 
-type Client struct {
-	id            string
-	stopCh        chan struct{}
-	activePeers   map[string]peers.Peer
-
+type ClientChannels struct {
+	InputChannel             chan types.NetworkMessage
+	OutputChannel            chan types.NetworkMessage
+	PeerUpdateChannel        chan peers.PeersUpdate
+	PeerLostChannel          chan string
+	PeerNewChannel           chan string
+	IsMasterChannel          chan bool
+	RegisteredNewPeerChannel chan string
 }
 
-//Creates a client object
+type Client struct {
+	id          string
+	stopCh      chan struct{}
+	activePeers map[string]peers.Peer
+}
+
+// Creates a client object
 func NewClient(id string) *Client {
 	return &Client{
-		id:           id,
-		stopCh:       make(chan struct{}),
+		id:          id,
+		stopCh:      make(chan struct{}),
 		activePeers: make(map[string]peers.Peer),
 	}
 }
 
-
 func (c *Client) RunClient(currentMasterID string, inputChannel <-chan types.NetworkMessage, outputChannel chan<- types.NetworkMessage, peerUpdateChannel <-chan peers.PeersUpdate, peerLostChannel chan<- string, peerNewChannel <-chan string, isMasterChannel chan<- bool, registeredNewPeerChannel chan<- string) {
-	
-	
-	
-	
+
 	for {
 		select {
 		case msg := <-inputChannel:
 			fmt.Println("Mottatt network-melding:", msg)
-			
+
 		case update := <-peerUpdateChannel:
 			fmt.Println("Peer-oppdatering mottatt:", update)
-			
+
 			peerstatus, peerID := c.updatePeers(update)
-			if(peerstatus == "lostPeer"){
-				if checkIfMaster(currentMasterID, peerID){
+			if peerstatus == "lostPeer" {
+				if checkIfMaster(currentMasterID, peerID) {
 					isMasterChannel <- false
 					newMasterID := updateMaster(c.activePeers)
-					if newMasterID != ""{
+					if newMasterID != "" {
 						currentMasterID = newMasterID
 						isMasterChannel <- true
 						peerLostChannel <- peerID
 					}
-				}else{
+				} else {
 					peerLostChannel <- peerID
 				}
-			}else if(peerstatus == "newPeer"){
+			} else if peerstatus == "newPeer" {
 				outputChannel <- types.NetworkMessage{MsgType: "Registered new peer", MsgData: peerID, Receipient: types.All}
 				registeredNewPeerChannel <- peerID
 			}
-
 
 		case <-c.stopCh:
 			fmt.Println("Client stoppes...")
@@ -67,7 +70,7 @@ func (c *Client) RunClient(currentMasterID string, inputChannel <-chan types.Net
 	}
 }
 
-func (c *Client) updatePeers(update peers.PeersUpdate) (string,string){
+func (c *Client) updatePeers(update peers.PeersUpdate) (string, string) {
 	// Updates activePeers
 	changedAllPeers := ""
 	peerID := ""
@@ -79,39 +82,36 @@ func (c *Client) updatePeers(update peers.PeersUpdate) (string,string){
 	}
 	// Removes lost peers
 	for _, lostID := range update.Lost {
-		
+
 		delete(c.activePeers, lostID)
 		fmt.Println("Fjernet tapt peer:", lostID)
 		changedAllPeers, peerID = "lostPeer", lostID
 	}
 	return changedAllPeers, peerID
-	
-}
 
+}
 
 func (c *Client) Stop() {
 	close(c.stopCh)
 }
 
-
-func checkIfMaster(currentMasterID string, lostPeerID string) bool{
+func checkIfMaster(currentMasterID string, lostPeerID string) bool {
 	return currentMasterID == lostPeerID
 }
 
+func updateMaster(activePeers map[string]peers.Peer) string {
 
-func updateMaster(activePeers map[string]peers.Peer) string{
-	
 	peers := []int{}
-	for _, peer := range activePeers{
+	for _, peer := range activePeers {
 		parts := strings.Split(peer.ID, ".")
-        if len(parts) == 0 {
-            fmt.Println("Invalid peer ID:", peer.ID)
-            return ""
-        }
-        // Use the last part of the IP adress (after last ".")
-        lastPart := parts[len(parts)-1]
+		if len(parts) == 0 {
+			fmt.Println("Invalid peer ID:", peer.ID)
+			return ""
+		}
+		// Use the last part of the IP adress (after last ".")
+		lastPart := parts[len(parts)-1]
 		int_ID, err := strconv.Atoi(lastPart)
-		if err != nil{
+		if err != nil {
 			fmt.Println("Could not convert ID to int")
 			return ""
 		}
@@ -122,4 +122,4 @@ func updateMaster(activePeers map[string]peers.Peer) string{
 	currentMasterID := strconv.Itoa(peers[0])
 	fmt.Println("New master is: ", currentMasterID)
 	return currentMasterID
-}	
+}

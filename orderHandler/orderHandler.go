@@ -43,7 +43,6 @@ func OrderHandler(ch orderChannels, ID string) {
 
 			for _, requests := range ordersFromMaster {
 				localLights = lights.SetHallLights(requests)
-
 			}
 
 			ch.LocalLightsChannel <- localLights

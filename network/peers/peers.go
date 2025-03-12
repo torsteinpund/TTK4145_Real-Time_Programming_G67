@@ -15,9 +15,6 @@ type Peer struct {
 	lastSeen time.Time
 }
 
-
-
-
 type PeersUpdate struct {
 	PeersID []string
 	New   string
