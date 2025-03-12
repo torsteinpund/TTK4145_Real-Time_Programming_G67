@@ -139,7 +139,7 @@ func fsmDoorTimeout(elev Elevator) Elevator {
 	return elev
 }
 
-func FsmRun() {
+func FsmRun(stateUpdateChannel chan<- Elevator) {
 	fmt.Println("Started!")
 
 	// Initialize elevator with hardware connection
@@ -198,7 +198,6 @@ func FsmRun() {
 
 			fmt.Printf("Button pressed at floor %d, button type %d\n", buttonEvent.Floor, buttonEvent.Button)
 			elev = fsmButtonPressed(buttonEvent.Floor, buttonEvent.Button, elev)
-
 		case currentFloor := <-floorSensorCh:
 			// Handle floor sensor event
 
@@ -251,5 +250,6 @@ func FsmRun() {
 				fmt.Println("obstruction switch off")
 			}
 		}
+		stateUpdateChannel <- elev //Passes the updated state
 	}
 }

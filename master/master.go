@@ -129,7 +129,6 @@ func RunMaster(ID string, channel MasterChannels) {
 						}
 					}
 				}
-
 			}
 		case state := <- channel.StateUpdateChannel:
 			reassign := false
