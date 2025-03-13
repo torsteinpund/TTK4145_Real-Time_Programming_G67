@@ -18,6 +18,7 @@ type ClientChannels struct {
 	PeerNewChannel           chan string
 	IsMasterChannel          chan bool
 	RegisteredNewPeerChannel chan string
+	
 }
 
 type Client struct {
@@ -35,32 +36,32 @@ func NewClient(id string) *Client {
 	}
 }
 
-func (c *Client) RunClient(currentMasterID string, inputChannel <-chan types.NetworkMessage, outputChannel chan<- types.NetworkMessage, peerUpdateChannel <-chan peers.PeersUpdate, peerLostChannel chan<- string, peerNewChannel <-chan string, isMasterChannel chan<- bool, registeredNewPeerChannel chan<- string) {
+func (c *Client) RunClient(currentMasterID string, clientChannels ClientChannels) {
 
 	for {
 		select {
-		case msg := <-inputChannel:
+		case msg := <-clientChannels.InputChannel:
 			fmt.Println("Mottatt network-melding:", msg)
 
-		case update := <-peerUpdateChannel:
+		case update := <-clientChannels.PeerUpdateChannel:
 			fmt.Println("Peer-oppdatering mottatt:", update)
 
 			peerstatus, peerID := c.updatePeers(update)
 			if peerstatus == "lostPeer" {
 				if checkIfMaster(currentMasterID, peerID) {
-					isMasterChannel <- false
+					clientChannels.IsMasterChannel <- false
 					newMasterID := updateMaster(c.activePeers)
 					if newMasterID != "" {
 						currentMasterID = newMasterID
-						isMasterChannel <- true
-						peerLostChannel <- peerID
+						clientChannels.IsMasterChannel <- true
+						clientChannels.PeerLostChannel <- peerID
 					}
 				} else {
-					peerLostChannel <- peerID
+					clientChannels.PeerLostChannel <- peerID
 				}
 			} else if peerstatus == "newPeer" {
-				outputChannel <- types.NetworkMessage{MsgType: "Registered new peer", MsgData: peerID, Receipient: types.All}
-				registeredNewPeerChannel <- peerID
+				clientChannels.OutputChannel <- types.NetworkMessage{MsgType: "Registered new peer", MsgData: peerID, Receipient: types.All}
+				clientChannels.RegisteredNewPeerChannel <- peerID
 			}
 
 		case <-c.stopCh:

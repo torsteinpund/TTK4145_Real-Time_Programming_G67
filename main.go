@@ -2,112 +2,87 @@ package main
 
 import (
 	// "encoding/json"
-	// "fmt"
 
 	//. "Driver-go/network/masterSelector"
 	"Driver-go/master"
+	"Driver-go/orderHandler"
+	"fmt"
+
 	//"os/exec"
-	"Driver-go/network/client"
-	"Driver-go/network/peers"
+	// "Driver-go/network/client"
+	// "Driver-go/network/peers"
 	"Driver-go/singleElevatorDriver/elevio"
 	"Driver-go/singleElevatorDriver/fsm"
+
 	// "Driver-go/network/bcast"
 	// "Driver-go/network/conn"
 	// "Driver-go/network/localip"
+	"Driver-go/lights"
 	. "Driver-go/types"
 )
 
-
-func main(){
+func main() {
+    elevio.InitHardwareConnection("localhost:15657")
 	elevator := elevio.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{})
+    fmt.Println("Elevator initialized DONE")
 	masterChannels := master.MasterChannels{
-		IsMasterChannel: 			make(chan bool),
-		PeerLostChannel: 			make(chan string),
-		ToSlavesChannel: 			make(chan NetworkMessage),
-		RegisterOrderChannel: 		make(chan OrderEvent),
-		StateUpdateChannel: 		make(chan Elevator),
-		OrderCopyResponseChannel: 	make(chan GlobalOrderMap),
-		RegisteredPeerChannel: 		make(chan string),
+		Ch_isMaster:          make(chan bool),
+		Ch_peerLost:          make(chan string),
+		Ch_toSlave:           make(chan NetworkMessage),
+		Ch_registerOrder:     make(chan OrderEvent),
+		Ch_stateUpdate:       make(chan Elevator),
+		Ch_orderCopyResponse: make(chan GlobalOrderMap),
+		Ch_registeredPeer:    make(chan string),
+		Ch_toSlaveTest:       make(chan GlobalOrderMap),
+	}
+
+	fsmChannels := fsm.FsmChannels{
+		Ch_buttonPress: make(chan ButtonEvent),
+		Ch_floorSensor: make(chan int),
+		Ch_stopButton:  make(chan bool),
+		Ch_obstruction: make(chan bool),
+		Ch_stateUpdate: masterChannels.Ch_stateUpdate,
 	}
 
 	// peerChannels := peers.PeerChannels{
 	// 	PeerUpdateChannel: 			make(chan peers.PeersUpdate),
-	// 	PeerLostChannel: 			make(chan string), 
+	// 	PeerLostChannel: 			make(chan string),
 	// 	PeerNewChannel: 			make(chan string),
 	// 	RegisteredNewPeerChannel: 	make(chan string),
 	// }
 
-	clientChannels := client.ClientChannels{
-		InputChannel: 				make(chan NetworkMessage),
-		OutputChannel: 				make(chan NetworkMessage),
-		PeerUpdateChannel: 			make(chan peers.PeersUpdate),
-		PeerLostChannel: 			make(chan string),
-		PeerNewChannel: 			make(chan string),
-		IsMasterChannel: 			make(chan bool),
-		RegisteredNewPeerChannel: 	make(chan string),
+	// clientChannels := client.ClientChannels{
+	// 	InputChannel: 				make(chan NetworkMessage),
+	// 	OutputChannel: 				make(chan NetworkMessage),
+	// 	PeerUpdateChannel: 			make(chan peers.PeersUpdate),
+	// 	PeerLostChannel: 			make(chan string),
+	// 	PeerNewChannel: 			make(chan string),
+	// 	IsMasterChannel: 			make(chan bool),
+	// 	RegisteredNewPeerChannel: 	make(chan string),
+	// }
+
+	orderChannels := orderHandler.OrderChannels{
+		LocalOrderChannel:       make(chan OrderMatrix),
+		LocalLightsChannel:       make(chan OrderMatrix),
+		OrdersFromMasterChannel: make(chan GlobalOrderMap),
+		OrdersToMasterChannel:   make(chan NetworkMessage),
+		ButtonEventChannel:      fsmChannels.Ch_buttonPress,
+		FinishedFloorChannel:    make(chan int),
+		Ch_registerOrder:        masterChannels.Ch_registerOrder,
+		Ch_toSlave:              masterChannels.Ch_toSlave,
+		Ch_toSlaveTest:          masterChannels.Ch_toSlaveTest,
 	}
-
-	client := client.NewClient(elevator.ID)
-
+    elevio.SetButtonLamp(ButtonType(1), 0, true)
+	// client := client.NewClient(elevator.ID)
+    
 	go master.RunMaster(elevator.ID, masterChannels)
-	go client.RunClient(elevator.ID,
-		clientChannels.InputChannel,
-		clientChannels.OutputChannel,
-		clientChannels.PeerUpdateChannel,
-		clientChannels.PeerLostChannel,
-		clientChannels.PeerNewChannel,
-		clientChannels.IsMasterChannel,
-		clientChannels.RegisteredNewPeerChannel,)
-	go fsm.FsmRun(masterChannels.StateUpdateChannel)
-	
-    // input := master.AllElevators{
-    //     GlobalOrders: [NUMFLOORS][NUMHALLBUTTONS]bool{{false, false}, {true, false}, {false, false}, {false, true}},
-    //     States: map[string]master.StateSingleElevator{
-    //         "one": master.StateSingleElevator{
-    //             ElevatorBehaviour:       "moving",
-    //             Floor:          2,
-    //             Direction:      "up",
-	// 			Available: true,
-    //             CabOrders:    [NUMFLOORS]bool{false, false, false, true},
-				
-    //         },
-    //         "two": master.StateSingleElevator{
-    //             ElevatorBehaviour:       "idle",
-    //             Floor:          0,
-    //             Direction:      "stop",
-	// 			Available: true,
-    //             CabOrders:    [NUMFLOORS]bool{false, false, false, false},
-				
-    //         },
-    //     },
-    // }
+	// go client.RunClient(elevator.ID,clientChannels)
+	go fsm.FsmRun(fsmChannels, elevator)
+	go orderHandler.OrderHandler(orderChannels, elevator.ID)
+    go lights.SetHallLights(orderChannels.LocalLightsChannel)
+	go func() {
+		masterChannels.Ch_registeredPeer <- elevator.ID
+	}()
+	select {}
 
-	// hraExecutable := "hall_request_assigner"
-
-    // jsonBytes, err := json.Marshal(input)
-    // if err != nil {
-    //     fmt.Println("json.Marshal error: ", err)
-    //     return
-    // }
-    
-    // ret, err := exec.Command("../TTK4145_Real-Time_Programming_G67/"+hraExecutable, "-i", string(jsonBytes)).CombinedOutput()
-    // if err != nil {
-    //     fmt.Println("exec.Command error: ", err)
-    //     fmt.Println(string(ret))
-    //     return
-    // }
-    
-    // output := new(map[string][NUMFLOORS][NUMHALLBUTTONS]bool)
-    // err = json.Unmarshal(ret, &output)
-    // if err != nil {
-    //     fmt.Println("json.Unmarshal error: ", err)
-    //     return
-    // }
-        
-    // fmt.Printf("output: \n")
-    // for k, v := range *output {
-    //     fmt.Printf("%6v :  %+v\n", k, v)
-    // }
 }
-
-

@@ -1,15 +1,26 @@
 package fsm
 
 import (
-	"Driver-go/singleElevatorDriver/elevio"
 	"Driver-go/lights"
-	"Driver-go/network/bcast"
+	"Driver-go/singleElevatorDriver/elevio"
 	"Driver-go/singleElevatorDriver/requests"
 	"Driver-go/singleElevatorDriver/timer"
 	. "Driver-go/types"
 	"fmt"
 	"time"
 )
+
+type FsmChannels struct {
+	Ch_buttonPress      chan ButtonEvent
+	Ch_floorSensor      chan int
+	Ch_stopButton 		chan bool
+	Ch_obstruction   	chan bool
+	Ch_stateUpdate 		chan Elevator
+	Ch_localLights		chan OrderMatrix
+}
+
+
+
 
 // fsmInit initialiserer heisens tilstand og tilhørende systemer
 /*func fsmInit() {
@@ -71,8 +82,8 @@ func fsmButtonPressed(btnFloor int, btnType ButtonType, elev Elevator) Elevator 
 	}
 
 	// Update button lights
-	elev.Requests = lights.SetHallLights(elev.Requests)
-	elev.Requests = lights.SetCabLights(elev.Requests)
+	// elev.Requests = lights.SetHallLights(elev.Requests)
+	// elev.Requests = lights.SetCabLights(elev.Requests)
 
 	return elev
 }
@@ -96,7 +107,7 @@ func fsmFloorArrival(newFloor int, elev Elevator) Elevator {
 
 			timer.TimerStart(elev.Config.DoorOpenDuration)
 
-			elev.Requests = lights.SetHallLights(elev.Requests)
+			// elev.Requests = lights.SetHallLights(elev.Requests)
 			elev.Requests = lights.SetCabLights(elev.Requests)
 
 			elev.Behaviour = ElevatorBehaviour(EB_DoorOpen)
@@ -123,7 +134,7 @@ func fsmDoorTimeout(elev Elevator) Elevator {
 			// Start timer and clear requests
 			timer.TimerStart(elev.Config.DoorOpenDuration)
 			elev = requests.RequestsClearAtCurrentFloor(elev, nil)
-			elev.Requests = lights.SetHallLights(elev.Requests)
+			// elev.Requests = lights.SetHallLights(elev.Requests)
 			elev.Requests = lights.SetCabLights(elev.Requests)
 
 		case ElevatorBehaviour(EB_Moving), ElevatorBehaviour(EB_Idle):
@@ -139,14 +150,15 @@ func fsmDoorTimeout(elev Elevator) Elevator {
 	return elev
 }
 
-func FsmRun(stateUpdateChannel chan<- Elevator) {
+
+func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 	fmt.Println("Started!")
 
 	// Initialize elevator with hardware connection
-	numFloors := 4
-	elevio.InitHardwareConnection("localhost:15657") // Connect to hardware server
-	emptyElev := Elevator{}
-	elev := elevio.InitElevator(numFloors, NUMBUTTONTYPE, emptyElev)
+	// numFloors := 4
+	// elevio.InitHardwareConnection("localhost:15657") // Connect to hardware server
+	// emptyElev := Elevator{}
+	// elev := elevio.InitElevator(numFloors, NUMBUTTONTYPE, emptyElev)
 
 	// Check if elevator starts between floors
 	if initialFloor := elevio.GetFloor(); initialFloor == -1 {
@@ -160,20 +172,14 @@ func FsmRun(stateUpdateChannel chan<- Elevator) {
 	// Polling rate configuration
 	inputPollRate := 25 * time.Millisecond // Adjust as needed
 
-	// Event channels for hardware events
-	buttonPressCh := make(chan ButtonEvent)
-	floorSensorCh := make(chan int)
-	stopButtonCh := make(chan bool)
-	obstructionSwitchCh := make(chan bool)
-	receivedButtonPressCh := make(chan ButtonEvent)
 	// Start polling goroutines
-	go elevio.PollButtons(buttonPressCh)
-	go elevio.PollFloorSensor(floorSensorCh)
-	go elevio.PollStopButton(stopButtonCh)
-	go elevio.PollObstructionSwitch(obstructionSwitchCh)
+	go elevio.PollButtons(ch_fsm.Ch_buttonPress)
+	go elevio.PollFloorSensor(ch_fsm.Ch_floorSensor)
+	go elevio.PollStopButton(ch_fsm.Ch_stopButton)
+	go elevio.PollObstructionSwitch(ch_fsm.Ch_obstruction)
 
-	go bcast.Transmitter(15000, buttonPressCh)
-	go bcast.Receiver(15000, receivedButtonPressCh)
+
+
 
 	// Initialize system state
 	prevFloor := -1
@@ -187,7 +193,7 @@ func FsmRun(stateUpdateChannel chan<- Elevator) {
 	// Main event loop
 	for {
 		select {
-		case buttonEvent := <-receivedButtonPressCh:
+		case buttonEvent := <-ch_fsm.Ch_buttonPress:
 			// Handle button press event
 			fmt.Printf("Received: %#v\n", buttonEvent.Floor)
 			if stop {
@@ -198,7 +204,8 @@ func FsmRun(stateUpdateChannel chan<- Elevator) {
 
 			fmt.Printf("Button pressed at floor %d, button type %d\n", buttonEvent.Floor, buttonEvent.Button)
 			elev = fsmButtonPressed(buttonEvent.Floor, buttonEvent.Button, elev)
-		case currentFloor := <-floorSensorCh:
+
+		case currentFloor := <-ch_fsm.Ch_floorSensor:
 			// Handle floor sensor event
 
 			if currentFloor != prevFloor {
@@ -209,7 +216,7 @@ func FsmRun(stateUpdateChannel chan<- Elevator) {
 				if !obstructionActive {
 					timer.TimerStop()
 					timer.TimerStart(3.0)
-					fmt.Println("timer started")
+					fmt.Println("ti//Passes the updated statemer started")
 				}
 				// Stop and restart the timer when arriving at a floor
 				// Set door timeout to 3 seconds
@@ -217,7 +224,7 @@ func FsmRun(stateUpdateChannel chan<- Elevator) {
 			prevFloor = currentFloor
 			obstructionActive = false
 
-		case stopPressed := <-stopButtonCh:
+		case stopPressed := <-ch_fsm.Ch_stopButton:
 			// Handle stop button event
 			if stopPressed {
 				lastKnownDirection = elev.Dirn
@@ -238,7 +245,7 @@ func FsmRun(stateUpdateChannel chan<- Elevator) {
 				elev = fsmDoorTimeout(elev)
 				timer.TimerStop() // Reset the timer after timeout handling
 			}
-		case obstruction := <-obstructionSwitchCh:
+		case obstruction := <-ch_fsm.Ch_obstruction:
 			if obstruction {
 				obstructionActive = true
 				timer.TimerStop()
@@ -249,7 +256,10 @@ func FsmRun(stateUpdateChannel chan<- Elevator) {
 				timer.TimerStart(3.0)
 				fmt.Println("obstruction switch off")
 			}
+			ch_fsm.Ch_stateUpdate <- elev //Passes the updated state
 		}
-		stateUpdateChannel <- elev //Passes the updated state
+		
 	}
 }
+
+

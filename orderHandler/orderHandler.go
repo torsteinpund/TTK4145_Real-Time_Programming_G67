@@ -1,8 +1,9 @@
 package orderHandler
 
 import (
-	"Driver-go/lights"
+	// "Driver-go/lights"
 	. "Driver-go/types"
+	"fmt"
 	// "net"
 )
 
@@ -16,35 +17,43 @@ import (
 // 	return req
 // }
 
-type orderChannels struct {
+type OrderChannels struct {
 	LocalOrderChannel       chan OrderMatrix
 	LocalLightsChannel      chan OrderMatrix
 	OrdersFromMasterChannel chan GlobalOrderMap
 	OrdersToMasterChannel   chan NetworkMessage
-	ButtenEventChannel      chan ButtonEvent
+	ButtonEventChannel      chan ButtonEvent
 	FinishedFloorChannel    chan int
+	Ch_registerOrder		chan OrderEvent
+	Ch_toSlave				chan NetworkMessage
+	Ch_toSlaveTest			chan GlobalOrderMap
 }
 
-func OrderHandler(ch orderChannels, ID string) {
+func OrderHandler(ch OrderChannels, ID string) {
 	ordersFromMaster := make(GlobalOrderMap)
 
 	for {
 		select {
-		case buttonEvent := <-ch.ButtenEventChannel:
+		case buttonEvent := <-ch.ButtonEventChannel:
 			button := []ButtonEvent{buttonEvent}
 			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
-			newOrderEvent := NetworkMessage{MsgType: "New OrderEvent", MsgData: orderEvent, Receipient: Master}
-			ch.OrdersToMasterChannel <- newOrderEvent
+			// newOrderEvent := NetworkMessage{MsgType: "New OrderEvent", MsgData: orderEvent, Receipient: Master}
+			// ch.OrdersToMasterChannel <- newOrderEvent
+			ch.Ch_registerOrder <- orderEvent
+			fmt.Println("OrderEvent sent to master from orderhandler after buttonEvent")
 
-		case ordersFromMaster = <-ch.OrdersFromMasterChannel:
+		case ordersFromMaster = <-ch.Ch_toSlaveTest:
+			fmt.Println("OrdersFromMaster received in orderHandler")
 			localRequests := ordersFromMaster[ID]
-			ch.LocalOrderChannel <- localRequests
+			//ch.LocalOrderChannel <- localRequests
+			println("wE MADE IT")
 			localLights := localRequests
-
+			
 			for _, requests := range ordersFromMaster {
-				localLights = lights.SetHallLights(requests)
+				fmt.Println("OrderHandler: ", requests)
+				// localLights = lights.SetCabLights(requests)
 			}
-
+			println("wE MADE IT 2")
 			ch.LocalLightsChannel <- localLights
 
 		case floor := <-ch.FinishedFloorChannel:
