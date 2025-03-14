@@ -17,7 +17,7 @@ type FsmChannels struct {
 	Ch_obstruction   	chan bool
 	Ch_stateUpdate 		chan Elevator
 	Ch_localLights		chan OrderMatrix
-	Ch_toFSM			chan OrderMatrix
+	Ch_toFsm			chan OrderMatrix
 }
 
 
@@ -38,13 +38,19 @@ type FsmChannels struct {
 	outputDevice = getOutputDevice()
 }*/
 
-func fsmInitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
+func FsmInitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
 	// Move the elevator down until it reaches a floor
-	elevio.SetMotorDirection(MD_Down)
-
+	
+	for{
+		elevio.SetMotorDirection(MD_Down)
+		if elevio.GetFloor() != -1 {
+			break
+		}
+	}
 	// Update the elevator's state
-	dirn := MD_Down
-	behaviour := ElevatorBehaviour(EB_Moving)
+	dirn := MD_Stop
+	elevio.SetMotorDirection(MD_Stop)
+	behaviour := ElevatorBehaviour(EB_Idle)
 	return behaviour, dirn
 }
 
@@ -94,6 +100,7 @@ func fsmButtonPressed(elev Elevator) Elevator {
 	fmt.Println("In fsmButtonPressed")
 	
 	dirnBehaviour := requests.RequestsChooseDirection(elev)
+	fmt.Println("dirn choesen")
 	elev.Dirn = dirnBehaviour.Dirn
 	elev.Behaviour = ElevatorBehaviour(dirnBehaviour.Behaviour)
 
@@ -121,7 +128,7 @@ func fsmButtonPressed(elev Elevator) Elevator {
 
 
 
-func fsmFloorArrival(newFloor int, elev Elevator) Elevator {
+func FsmFloorArrival(newFloor int, elev Elevator) Elevator {
 	fmt.Printf("\n\nfsmOnFloorArrival(%d)\n", newFloor)
 
 	elev.Floor = newFloor
@@ -194,13 +201,13 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 	// elev := elevio.InitElevator(numFloors, NUMBUTTONTYPE, emptyElev)
 
 	// Check if elevator starts between floors
-	if initialFloor := elevio.GetFloor(); initialFloor == -1 {
-		fmt.Println("Elevator is between floors on startup. Running initialization...")
-		elev.Behaviour, elev.Dirn = fsmInitBetweenFloors()
-	} else {
-		// If the elevator starts at a valid floor, initialize its state
-		elev = fsmFloorArrival(initialFloor, elev)
-	}
+	// if initialFloor := elevio.GetFloor(); initialFloor == -1 {
+	// 	fmt.Println("Elevator is between floors on startup. Running initialization...")
+	// 	elev.Behaviour, elev.Dirn = fsmInitBetweenFloors()
+	// } else {
+	// 	// If the elevator starts at a valid floor, initialize its state
+	// 	elev = fsmFloorArrival(initialFloor, elev)
+	// }
 
 	// Polling rate configuration
 	inputPollRate := 25 * time.Millisecond // Adjust as needed
@@ -233,13 +240,13 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 		// 		elevio.SetMotorDirection(lastKnownDirection)
 		// 		stop = false
 		// 	}
-		// 	fmt.Println("Button pressed!")
+		// 	fmt.Println("Button pressed 5!")
 
 		// 	fmt.Printf("Button pressed at floor %d, button type %d\n", buttonEvent.Floor, buttonEvent.Button)
 		// 	elev = fsmButtonPressed(buttonEvent.Floor, buttonEvent.Button, elev)
-		case receivedOrder := <- ch_fsm.Ch_toFSM:
+		case receivedOrder := <- ch_fsm.Ch_toFsm:
 			fmt.Println("Received order from orderhandler")
-			elev.Requests = receivedOrder.Requests
+			elev.Requests = receivedOrder
 			elev = fsmButtonPressed(elev)
 
 		case currentFloor := <-ch_fsm.Ch_floorSensor:
@@ -247,7 +254,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 
 			if currentFloor != prevFloor {
 				fmt.Printf("Arrived at floor %d\n", currentFloor)
-				elev = fsmFloorArrival(currentFloor, elev)
+				elev = FsmFloorArrival(currentFloor, elev)
 				elevio.SetFloorIndicator(currentFloor) // Update floor indicator lamp
 
 				if !obstructionActive {
@@ -269,13 +276,13 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 				fmt.Println(lastKnownDirection)
 				elevio.SetStopLamp(true)
 				elevio.SetMotorDirection(0)
-				stop = true
+				// stop = true
 			} else {
 				fmt.Println("Stop button released!")
 				elevio.SetStopLamp(false)
 			}
 
-		case timer := <-time.After(inputPollRate):
+		case <-time.After(inputPollRate):
 			// Periodic tasks (check timer)
 			if timer.TimerTimedOut() {
 				fmt.Println("Door timeout occurred.")
@@ -293,7 +300,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 				timer.TimerStart(3.0)
 				fmt.Println("obstruction switch off")
 			}
-			ch_fsm.Ch_stateUpdate <- elev //Passes the updated state
+		ch_fsm.Ch_stateUpdate <- elev //Passes the updated state
 		}
 		
 	}

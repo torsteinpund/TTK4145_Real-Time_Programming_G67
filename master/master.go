@@ -20,7 +20,7 @@ type MasterChannels struct {
 	Ch_stateUpdate       chan Elevator
 	Ch_orderCopyResponse chan GlobalOrderMap
 	Ch_registeredPeer    chan string
-	Ch_toSlaveTest	 		chan GlobalOrderMap
+	Ch_toSlaveTest       chan GlobalOrderMap
 }
 
 // StateSingleElevator represents the state of a single elevator
@@ -42,8 +42,6 @@ func unitializedSingleStateElevator() StateSingleElevator {
 	}
 }
 
-
-
 // Elevators represents the global state of all elevators, including global orders
 // and the state of each individual elevator.
 type AllElevators struct {
@@ -57,7 +55,6 @@ func RunMaster(ID string, ch_master MasterChannels) {
 
 	allElevatorStates := map[string]StateSingleElevator{}
 	hallOrders := [NUMFLOORS][NUMHALLBUTTONS]bool{}
-
 
 	orderCopy := NetworkMessage{
 		MsgType:    "Broadcast message",
@@ -100,7 +97,8 @@ func RunMaster(ID string, ch_master MasterChannels) {
 			}
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 			fmt.Println("Master has reassigned the new peer")
-			ch_master.Ch_toSlaveTest <- updatedOrders.MsgData.(GlobalOrderMap)
+			ch_master.Ch_toSlave <- updatedOrders
+			fmt.Println("Master has sent the updated orders to the slave")
 
 		case newOrderEvent := <-ch_master.Ch_registerOrder:
 			fmt.Println("Master has received a new order event")

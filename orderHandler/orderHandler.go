@@ -54,8 +54,9 @@ func OrderHandler(ch OrderChannels, ID string) {
 			// 	fmt.Println("OrderHandler: ", requests)
 			// 	// localLights = lights.SetCabLights(requests)
 			// }
-			
+			fmt.Println(ordersFromMaster[ID])
 			// ch.LocalLightsChannel <- localLights
+			fmt.Println("map above", ID)
 			ch.Ch_toFsm <- ordersFromMaster[ID]
 
 

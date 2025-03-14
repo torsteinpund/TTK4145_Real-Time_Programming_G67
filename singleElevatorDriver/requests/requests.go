@@ -2,6 +2,7 @@ package requests
 
 import (
 	. "Driver-go/types"
+	"fmt"
 )
 
 
@@ -18,7 +19,9 @@ func RequestsAbove(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 }
 
 func RequestsBelow(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
+	fmt.Println("Test0")
 	for i := 0; i < floor; i++ {
+		fmt.Println("Test")
 		for j := 0; j < NUMBUTTONTYPE; j++ {
 			if req[i][j] { 
 				return true
@@ -40,6 +43,8 @@ func RequestsHere(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 
 
 func RequestsChooseDirection(elev Elevator) DirnBehaviourPair {
+	fmt.Println("RequestsChooseDirection")
+	fmt.Println(elev.Dirn)
 	switch elev.Dirn {
 	case MD_Up:
 		if RequestsAbove(elev.Requests, elev.Floor) {
@@ -52,13 +57,18 @@ func RequestsChooseDirection(elev Elevator) DirnBehaviourPair {
 			return DirnBehaviourPair{Dirn:MD_Stop, Behaviour:EB_Idle}
 		}
 	case MD_Down:
+		fmt.Println("MD_Down", elev.Floor,elev.Requests)
 		if RequestsBelow(elev.Requests, elev.Floor) {
+			fmt.Println("RequestsBelow")
 			return DirnBehaviourPair{Dirn:MD_Down, Behaviour:EB_Moving}
 		} else if RequestsHere(elev.Requests, elev.Floor) {
+			fmt.Println("RequestsHere")
 			return DirnBehaviourPair{Dirn:MD_Up, Behaviour:EB_DoorOpen}
 		} else if RequestsAbove(elev.Requests, elev.Floor) {
+			fmt.Println("RequestsAbove")
 			return DirnBehaviourPair{Dirn:MD_Up, Behaviour:EB_Moving}
 		} else {
+			fmt.Println("RequestsStop")
 			return DirnBehaviourPair{Dirn:MD_Stop, Behaviour:EB_Idle}
 		}
 	case MD_Stop:

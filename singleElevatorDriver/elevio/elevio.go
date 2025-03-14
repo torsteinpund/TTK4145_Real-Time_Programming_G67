@@ -1,18 +1,19 @@
 package elevio
 
 import (
+	"Driver-go/network/client"
+	. "Driver-go/types"
 	"fmt"
 	"net"
 	"sync"
 	"time"
-	. "Driver-go/types"
 )
 
 const _pollRate = 20 * time.Millisecond
+
 var _initialized bool = false
 var _mtx sync.Mutex
 var _conn net.Conn
-
 
 func InitHardwareConnection(addr string) {
 	if _initialized {
@@ -35,17 +36,16 @@ func ElevatorUninitialized() Elevator {
 		Behaviour: ElevatorBehaviour(EB_Idle),
 		Config: struct {
 			ClearRequestVariant ClearRequestVariant
-			DoorOpenDuration   float64
-			TimeBetweenFloors    float64
+			DoorOpenDuration    float64
+			TimeBetweenFloors   float64
 		}{
 			ClearRequestVariant: CV_All,
-			DoorOpenDuration:   3.0,
-			TimeBetweenFloors: 2.0,
+			DoorOpenDuration:    3.0,
+			TimeBetweenFloors:   2.0,
 		},
-		Requests: [NUMFLOORS][NUMBUTTONTYPE]bool{}, 
+		Requests: [NUMFLOORS][NUMBUTTONTYPE]bool{},
 	}
 }
-
 
 func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
 	if numFloors > NUMFLOORS || numButtonTypes > NUMBUTTONTYPE {
@@ -55,18 +55,18 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
 
 	elev = Elevator{
 		// Start on an invalid floor
-		Floor:    -1,                     
-		Dirn:     MD_Stop,          
-		Behaviour: ElevatorBehaviour(EB_Idle),               
-		Config: struct {                   
+		ID:        client.GetID("10.100.23.255"),
+		Floor:     -1,
+		Dirn:      MD_Stop,
+		Behaviour: ElevatorBehaviour(EB_Idle),
+		Config: struct {
 			ClearRequestVariant ClearRequestVariant
-			DoorOpenDuration   float64
-			TimeBetweenFloors    float64
-			
+			DoorOpenDuration    float64
+			TimeBetweenFloors   float64
 		}{
-			ClearRequestVariant: CV_All,  
-			DoorOpenDuration:   3.0,    
-			TimeBetweenFloors: 2.0,      
+			ClearRequestVariant: CV_All,
+			DoorOpenDuration:    3.0,
+			TimeBetweenFloors:   2.0,
 		},
 	}
 
@@ -81,7 +81,6 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
 	fmt.Printf("%+v\n", elev)
 	return elev
 }
-
 
 func SetMotorDirection(dir MotorDirection) {
 	write([4]byte{1, byte(dir), 0, 0})
@@ -104,7 +103,7 @@ func SetStopLamp(value bool) {
 }
 
 func PollButtons(receiver chan<- ButtonEvent) {
-	
+
 	prev := make([][3]bool, NUMFLOORS)
 	for {
 		time.Sleep(_pollRate)
@@ -112,7 +111,7 @@ func PollButtons(receiver chan<- ButtonEvent) {
 			for b := ButtonType(0); b < 3; b++ {
 				v := GetButton(b, f)
 				if v != prev[f][b] && v {
-					receiver <- ButtonEvent{Floor:f, Button:ButtonType(b)}
+					receiver <- ButtonEvent{Floor: f, Button: ButtonType(b)}
 					print("Button pressed: ")
 				}
 				prev[f][b] = v

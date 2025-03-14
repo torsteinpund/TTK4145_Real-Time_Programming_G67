@@ -124,3 +124,9 @@ func updateMaster(activePeers map[string]peers.Peer) string {
 	fmt.Println("New master is: ", currentMasterID)
 	return currentMasterID
 }
+
+func GetID(ipAdress string) string {
+	parts := strings.Split(ipAdress, ".")
+
+	return parts[len(parts)-1]
+}
