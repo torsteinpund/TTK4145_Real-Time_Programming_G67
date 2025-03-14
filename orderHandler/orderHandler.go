@@ -47,16 +47,12 @@ func OrderHandler(ch OrderChannels, ID string) {
 			fmt.Println("OrdersFromMaster received in orderHandler")
 			// localRequests := ordersFromMaster.MsgData.[ID]
 			//ch.LocalOrderChannel <- localRequests
-			println("wE MADE IT")
 			// localLights := localRequests
 			ordersFromMaster = fromMaster.MsgData.(GlobalOrderMap)
 			// for _, requests := range ordersFromMaster {
 			// 	fmt.Println("OrderHandler: ", requests)
 			// 	// localLights = lights.SetCabLights(requests)
 			// }
-			fmt.Println(ordersFromMaster[ID])
-			// ch.LocalLightsChannel <- localLights
-			fmt.Println("map above", ID)
 			ch.Ch_toFsm <- ordersFromMaster[ID]
 
 

@@ -102,7 +102,6 @@ func RunMaster(ID string, ch_master MasterChannels) {
 
 		case newOrderEvent := <-ch_master.Ch_registerOrder:
 			fmt.Println("Master has received a new order event")
-			fmt.Println(newOrderEvent.Orders[0].Floor)
 			elevatorID := newOrderEvent.ElevatorID
 			_, exist := allElevatorStates[elevatorID]
 			if !exist {
@@ -121,7 +120,7 @@ func RunMaster(ID string, ch_master MasterChannels) {
 				}
 			}
 			updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
-			fmt.Println("Master has reassigned the new order")
+			
 			ch_master.Ch_toSlave <- updatedGlobalOrders
 			//ch_master.Ch_toSlaveTest <- updatedGlobalOrders.MsgData.(GlobalOrderMap)
 

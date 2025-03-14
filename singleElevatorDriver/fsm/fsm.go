@@ -97,10 +97,10 @@ func FsmInitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
 
 func fsmButtonPressed(elev Elevator) Elevator {
 	// fmt.Printf("\n\nfsmOnRequestButtonPress(%d, %v)\n", btnFloor, btnType)
-	fmt.Println("In fsmButtonPressed")
+
 	
 	dirnBehaviour := requests.RequestsChooseDirection(elev)
-	fmt.Println("dirn choesen")
+	
 	elev.Dirn = dirnBehaviour.Dirn
 	elev.Behaviour = ElevatorBehaviour(dirnBehaviour.Behaviour)
 
@@ -129,7 +129,7 @@ func fsmButtonPressed(elev Elevator) Elevator {
 
 
 func FsmFloorArrival(newFloor int, elev Elevator) Elevator {
-	fmt.Printf("\n\nfsmOnFloorArrival(%d)\n", newFloor)
+	// fmt.Printf("\n\nfsmOnFloorArrival(%d)\n", newFloor)
 
 	elev.Floor = newFloor
 
@@ -240,13 +240,12 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 		// 		elevio.SetMotorDirection(lastKnownDirection)
 		// 		stop = false
 		// 	}
-		// 	fmt.Println("Button pressed 5!")
 
 		// 	fmt.Printf("Button pressed at floor %d, button type %d\n", buttonEvent.Floor, buttonEvent.Button)
 		// 	elev = fsmButtonPressed(buttonEvent.Floor, buttonEvent.Button, elev)
 		case receivedOrder := <- ch_fsm.Ch_toFsm:
-			fmt.Println("Received order from orderhandler")
 			elev.Requests = receivedOrder
+			fmt.Println(elev.Requests)
 			elev = fsmButtonPressed(elev)
 
 		case currentFloor := <-ch_fsm.Ch_floorSensor:
@@ -260,7 +259,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 				if !obstructionActive {
 					timer.TimerStop()
 					timer.TimerStart(3.0)
-					fmt.Println("ti//Passes the updated statemer started")
+					// fmt.Println("ti//Passes the updated statemer started")
 				}
 				// Stop and restart the timer when arriving at a floor
 				// Set door timeout to 3 seconds
@@ -285,7 +284,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 		case <-time.After(inputPollRate):
 			// Periodic tasks (check timer)
 			if timer.TimerTimedOut() {
-				fmt.Println("Door timeout occurred.")
+				// fmt.Println("Door timeout occurred.")
 				elev = fsmDoorTimeout(elev)
 				timer.TimerStop() // Reset the timer after timeout handling
 			}
