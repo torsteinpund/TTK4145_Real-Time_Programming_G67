@@ -25,6 +25,7 @@ func main() {
     elevio.InitHardwareConnection("localhost:15657")
 	elevator := elevio.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{})
     fmt.Println("Elevator initialized DONE")
+	
 	masterChannels := master.MasterChannels{
 		Ch_isMaster:          make(chan bool),
 		Ch_peerLost:          make(chan string),

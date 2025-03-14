@@ -124,8 +124,8 @@ func RunMaster(ID string, ch_master MasterChannels) {
 			}
 			updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
 			fmt.Println("Master has reassigned the new order")
-			//ch_master.Ch_toSlave <- updatedGlobalOrders
-			ch_master.Ch_toSlaveTest <- updatedGlobalOrders.MsgData.(GlobalOrderMap)
+			ch_master.Ch_toSlave <- updatedGlobalOrders
+			//ch_master.Ch_toSlaveTest <- updatedGlobalOrders.MsgData.(GlobalOrderMap)
 
 		case masterCheck := <-ch_master.Ch_isMaster:
 			fmt.Println("Master has received a check if master")

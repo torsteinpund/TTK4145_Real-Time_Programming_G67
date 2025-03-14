@@ -27,6 +27,7 @@ type OrderChannels struct {
 	Ch_registerOrder		chan OrderEvent
 	Ch_toSlave				chan NetworkMessage
 	Ch_toSlaveTest			chan GlobalOrderMap
+	Ch_toFsm				chan OrderMatrix	
 }
 
 func OrderHandler(ch OrderChannels, ID string) {
@@ -42,19 +43,21 @@ func OrderHandler(ch OrderChannels, ID string) {
 			ch.Ch_registerOrder <- orderEvent
 			fmt.Println("OrderEvent sent to master from orderhandler after buttonEvent")
 
-		case ordersFromMaster = <-ch.Ch_toSlaveTest:
+		case fromMaster := <-ch.Ch_toSlave:
 			fmt.Println("OrdersFromMaster received in orderHandler")
-			localRequests := ordersFromMaster[ID]
+			// localRequests := ordersFromMaster.MsgData.[ID]
 			//ch.LocalOrderChannel <- localRequests
 			println("wE MADE IT")
-			localLights := localRequests
+			// localLights := localRequests
+			ordersFromMaster = fromMaster.MsgData.(GlobalOrderMap)
+			// for _, requests := range ordersFromMaster {
+			// 	fmt.Println("OrderHandler: ", requests)
+			// 	// localLights = lights.SetCabLights(requests)
+			// }
 			
-			for _, requests := range ordersFromMaster {
-				fmt.Println("OrderHandler: ", requests)
-				// localLights = lights.SetCabLights(requests)
-			}
-			println("wE MADE IT 2")
-			ch.LocalLightsChannel <- localLights
+			// ch.LocalLightsChannel <- localLights
+			ch.Ch_toFsm <- ordersFromMaster[ID]
+
 
 		case floor := <-ch.FinishedFloorChannel:
 			orders := []ButtonEvent{}

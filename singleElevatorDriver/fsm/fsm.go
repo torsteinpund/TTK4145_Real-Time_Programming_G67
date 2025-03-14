@@ -17,6 +17,7 @@ type FsmChannels struct {
 	Ch_obstruction   	chan bool
 	Ch_stateUpdate 		chan Elevator
 	Ch_localLights		chan OrderMatrix
+	Ch_toFSM			chan OrderMatrix
 }
 
 
@@ -47,38 +48,67 @@ func fsmInitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
 	return behaviour, dirn
 }
 
-func fsmButtonPressed(btnFloor int, btnType ButtonType, elev Elevator) Elevator {
-	fmt.Printf("\n\nfsmOnRequestButtonPress(%d, %v)\n", btnFloor, btnType)
+// func fsmButtonPressed(btnFloor int, btnType ButtonType, elev Elevator) Elevator {
+// 	fmt.Printf("\n\nfsmOnRequestButtonPress(%d, %v)\n", btnFloor, btnType)
 
-	switch elev.Behaviour {
-	case ElevatorBehaviour(EB_DoorOpen):
-		if requests.RequestsShouldClearImmediately(elev, btnFloor, btnType) {
-			timer.TimerStart(elev.Config.DoorOpenDuration)
-		} else {
-			elev.Requests[btnFloor][btnType] = true
-		}
+// 	switch elev.Behaviour {
+// 	// case ElevatorBehaviour(EB_DoorOpen):
+// 	// 	if requests.RequestsShouldClearImmediately(elev, btnFloor, btnType) {
+// 	// 		timer.TimerStart(elev.Config.DoorOpenDuration)
+// 	// 	} else {
+// 	// 		elev.Requests[btnFloor][btnType] = true
+// 	// 	}
 
-	case ElevatorBehaviour(EB_Moving):
-		elev.Requests[btnFloor][btnType] = true
+// 	// case ElevatorBehaviour(EB_Moving):
+// 	// 	elev.Requests[btnFloor][btnType] = true
 
-	case ElevatorBehaviour(EB_Idle):
-		elev.Requests[btnFloor][btnType] = true
-		dirnBehaviour := requests.RequestsChooseDirection(elev)
-		elev.Dirn = dirnBehaviour.Dirn
-		elev.Behaviour = ElevatorBehaviour(dirnBehaviour.Behaviour)
+// 	case ElevatorBehaviour(EB_Idle):
+// 		elev.Requests[btnFloor][btnType] = true
+// 		dirnBehaviour := requests.RequestsChooseDirection(elev)
+// 		elev.Dirn = dirnBehaviour.Dirn
+// 		elev.Behaviour = ElevatorBehaviour(dirnBehaviour.Behaviour)
 
-		switch dirnBehaviour.Behaviour {
-		case EB_DoorOpen:
-			elevio.SetDoorOpenLamp(true)
-			timer.TimerStart(elev.Config.DoorOpenDuration)
-			elev = requests.RequestsClearAtCurrentFloor(elev, nil)
+// 		switch dirnBehaviour.Behaviour {
+// 		case EB_DoorOpen:
+// 			elevio.SetDoorOpenLamp(true)
+// 			timer.TimerStart(elev.Config.DoorOpenDuration)
+// 			elev = requests.RequestsClearAtCurrentFloor(elev, nil)
 
-		case EB_Moving:
-			elevio.SetMotorDirection(elev.Dirn)
+// 		case EB_Moving:
+// 			elevio.SetMotorDirection(elev.Dirn)
 
-		case EB_Idle:
-			//No action
-		}
+// 		case EB_Idle:
+// 			//No action
+// 		}
+// 	}
+
+// 	// Update button lights
+// 	// elev.Requests = lights.SetHallLights(elev.Requests)
+// 	// elev.Requests = lights.SetCabLights(elev.Requests)
+
+// 	return elev
+// }
+
+func fsmButtonPressed(elev Elevator) Elevator {
+	// fmt.Printf("\n\nfsmOnRequestButtonPress(%d, %v)\n", btnFloor, btnType)
+	fmt.Println("In fsmButtonPressed")
+	
+	dirnBehaviour := requests.RequestsChooseDirection(elev)
+	elev.Dirn = dirnBehaviour.Dirn
+	elev.Behaviour = ElevatorBehaviour(dirnBehaviour.Behaviour)
+
+	switch dirnBehaviour.Behaviour {
+	
+	case EB_DoorOpen:
+		elevio.SetDoorOpenLamp(true)
+		timer.TimerStart(elev.Config.DoorOpenDuration)
+		elev = requests.RequestsClearAtCurrentFloor(elev, nil)
+
+	case EB_Moving:
+		elevio.SetMotorDirection(elev.Dirn)
+
+	case EB_Idle:
+		//No action
 	}
 
 	// Update button lights
@@ -87,6 +117,9 @@ func fsmButtonPressed(btnFloor int, btnType ButtonType, elev Elevator) Elevator 
 
 	return elev
 }
+
+
+
 
 func fsmFloorArrival(newFloor int, elev Elevator) Elevator {
 	fmt.Printf("\n\nfsmOnFloorArrival(%d)\n", newFloor)
@@ -188,22 +221,26 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 
 	obstructionActive := false
 	lastKnownDirection := MotorDirection(0)
-	stop := false
+	// stop := false
 
 	// Main event loop
 	for {
 		select {
-		case buttonEvent := <-ch_fsm.Ch_buttonPress:
-			// Handle button press event
-			fmt.Printf("Received: %#v\n", buttonEvent.Floor)
-			if stop {
-				elevio.SetMotorDirection(lastKnownDirection)
-				stop = false
-			}
-			fmt.Println("Button pressed!")
+		// case buttonEvent := <-ch_fsm.Ch_buttonPress:
+		// 	// Handle button press event
+		// 	fmt.Printf("Received: %#v\n", buttonEvent.Floor)
+		// 	if stop {
+		// 		elevio.SetMotorDirection(lastKnownDirection)
+		// 		stop = false
+		// 	}
+		// 	fmt.Println("Button pressed!")
 
-			fmt.Printf("Button pressed at floor %d, button type %d\n", buttonEvent.Floor, buttonEvent.Button)
-			elev = fsmButtonPressed(buttonEvent.Floor, buttonEvent.Button, elev)
+		// 	fmt.Printf("Button pressed at floor %d, button type %d\n", buttonEvent.Floor, buttonEvent.Button)
+		// 	elev = fsmButtonPressed(buttonEvent.Floor, buttonEvent.Button, elev)
+		case receivedOrder := <- ch_fsm.Ch_toFSM:
+			fmt.Println("Received order from orderhandler")
+			elev.Requests = receivedOrder.Requests
+			elev = fsmButtonPressed(elev)
 
 		case currentFloor := <-ch_fsm.Ch_floorSensor:
 			// Handle floor sensor event
@@ -238,7 +275,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 				elevio.SetStopLamp(false)
 			}
 
-		case <-time.After(inputPollRate):
+		case timer := <-time.After(inputPollRate):
 			// Periodic tasks (check timer)
 			if timer.TimerTimedOut() {
 				fmt.Println("Door timeout occurred.")
