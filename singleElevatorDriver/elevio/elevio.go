@@ -59,6 +59,7 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
 		Floor:     -1,
 		Dirn:      MD_Stop,
 		Behaviour: ElevatorBehaviour(EB_Idle),
+		Avaliable: true,
 		Config: struct {
 			ClearRequestVariant ClearRequestVariant
 			DoorOpenDuration    float64

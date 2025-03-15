@@ -32,6 +32,7 @@ func main() {
     // If the elevator starts at a valid floor, initialize its state
     elevator = fsm.FsmFloorArrival(elevio.GetFloor(), elevator)
 	fmt.Println("Elevator initialized DONE")
+	fmt.Println(elevator.Avaliable)
 
 	masterChannels := master.MasterChannels{
 		Ch_isMaster:          make(chan bool),

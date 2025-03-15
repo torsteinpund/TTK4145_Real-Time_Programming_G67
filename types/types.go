@@ -89,7 +89,7 @@ const (
 )
 
 func (behaviour ElevatorBehaviour) ToString() string{
-	behavList := []string{"idle", "dooropen", "moving"}
+	behavList := []string{"idle", "doorOpen", "moving"}
 	return behavList[int(behaviour)]
 }
 

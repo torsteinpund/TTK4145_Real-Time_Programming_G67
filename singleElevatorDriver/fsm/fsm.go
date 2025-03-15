@@ -192,7 +192,7 @@ func fsmDoorTimeout(elev Elevator) Elevator {
 
 
 func FsmRun(ch_fsm FsmChannels, elev Elevator) {
-	fmt.Println("Started!")
+	fmt.Println("FSM Started!")
 
 	// Initialize elevator with hardware connection
 	// numFloors := 4
@@ -245,7 +245,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 		// 	elev = fsmButtonPressed(buttonEvent.Floor, buttonEvent.Button, elev)
 		case receivedOrder := <- ch_fsm.Ch_toFsm:
 			elev.Requests = receivedOrder
-			fmt.Println(elev.Requests)
+			// fmt.Println(elev.Requests)
 			elev = fsmButtonPressed(elev)
 
 		case currentFloor := <-ch_fsm.Ch_floorSensor:
@@ -255,7 +255,8 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 				fmt.Printf("Arrived at floor %d\n", currentFloor)
 				elev = FsmFloorArrival(currentFloor, elev)
 				elevio.SetFloorIndicator(currentFloor) // Update floor indicator lamp
-
+				fmt.Println("After FSMFLOORARRIVAL," ,elev.Requests)
+				// ch_fsm.Ch_stateUpdate<-elev
 				if !obstructionActive {
 					timer.TimerStop()
 					timer.TimerStart(3.0)
@@ -299,9 +300,8 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 				timer.TimerStart(3.0)
 				fmt.Println("obstruction switch off")
 			}
-		ch_fsm.Ch_stateUpdate <- elev //Passes the updated state
 		}
-		
+		ch_fsm.Ch_stateUpdate <- elev //Passes the updated state
 	}
 }
 
