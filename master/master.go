@@ -57,7 +57,7 @@ func RunMaster(ID string, ch_master MasterChannels) {
 	hallOrders := [NUMFLOORS][NUMHALLBUTTONS]bool{}
 
 	orderCopy := NetworkMessage{
-		MsgType:    "Broadcast message",
+		MsgType:    "ordercopyresponse",
 		Receipient: All,
 		MsgData:    true,
 	}
@@ -233,7 +233,7 @@ func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorState
 		globOrderMap[elevatorID] = orders
 	}
 
-	updatedOrders := NetworkMessage{MsgType: "Updated globalorders", MsgData: globOrderMap, Receipient: All}
+	updatedOrders := NetworkMessage{MsgType: "orderupdatechannel", MsgData: globOrderMap, Receipient: All}
 
 	return updatedOrders
 }

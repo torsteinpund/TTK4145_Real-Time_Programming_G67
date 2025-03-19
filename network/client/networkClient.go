@@ -21,6 +21,8 @@ type ClientChannels struct {
 	
 }
 
+
+
 type Client struct {
 	id          string
 	stopCh      chan struct{}
@@ -54,12 +56,15 @@ func (c *Client) RunClient(currentMasterID string, clientChannels ClientChannels
 					if newMasterID != "" {
 						currentMasterID = newMasterID
 						clientChannels.IsMasterChannel <- true
+						delete(c.activePeers, peerID)
 						clientChannels.PeerLostChannel <- peerID
 					}
 				} else {
+					delete(c.activePeers, peerID)
 					clientChannels.PeerLostChannel <- peerID
 				}
 			} else if peerstatus == "newPeer" {
+				c.activePeers[peerID] = peers.Peer{ID: peerID}
 				clientChannels.OutputChannel <- types.NetworkMessage{MsgType: "Registered new peer", MsgData: peerID, Receipient: types.All}
 				clientChannels.RegisteredNewPeerChannel <- peerID
 			}
