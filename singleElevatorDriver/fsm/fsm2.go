@@ -21,7 +21,7 @@ type FsmChannels struct {
 }
 
 
-func fsmInitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
+func FsmInitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
 	// Move the elevator down until it reaches a floor
 	
 	for{
@@ -37,7 +37,7 @@ func fsmInitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
 	return behaviour, dirn
 }
 
-func fsmButtonPressed(elev Elevator, ch_doorOpen chan<- bool) Elevator {
+func FsmButtonPressed(elev Elevator, ch_doorOpen chan<- bool) Elevator {
 
 	
 
@@ -82,25 +82,28 @@ func fsmFloorArrival(newFloor int, elev Elevator, ch_doorOpen chan<- bool) Eleva
 	case ElevatorBehaviour(EB_Moving):
 		// Check if the elevator should stop at the current floor
 		if requests.RequestsShouldStop(elev) {
-
 			ch_doorOpen <- true
-			
-			elevio.SetMotorDirection(MD_Stop)
-
-			elevio.SetDoorOpenLamp(true)
-
-			elev = requests.RequestsClearAtCurrentFloor(elev, nil)
-
-			timer.TimerStart(elev.Config.DoorOpenDuration)
-
-			// elev.Requests = lights.SetHallLights(elev.Requests)
-			elev.Requests = lights.SetCabLights(elev.Requests)
-
-			elev.Behaviour = ElevatorBehaviour(EB_DoorOpen)
+			break
 		}
+
+		// Do not necessairly need this
+		// switch elev.Dirn {
+		// case MD_Up:
+		// 	if !requests.RequestsAbove(elev.Requests, elev.Floor) {
+		// 		elev.Dirn = MD_Down
+		// 		elevio.SetMotorDirection(MD_Down)
+		// 	}
+			
+		// case MD_Down:
+		// 	if !requests.RequestsBelow(elev.Requests, elev.Floor) {
+		// 		elev.Dirn = MD_Stop
+		// 		elevio.SetMotorDirection(MD_Up)
+		// 	}
+		// }
 
 	default:
 		// No action
+		//elevio.SetMotorDirection(MD_Stop)
 	}
 
 	return elev
@@ -139,7 +142,10 @@ func fsmDoorTimeout(elev Elevator) Elevator {
 
 func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 	fmt.Println("FSM Started!")
-
+	if initialFloor := elevio.GetFloor(); initialFloor == -1 {
+		fmt.Println("Elevator is between floors on startup. Running initialization...")
+		elev.Behaviour, elev.Dirn = FsmInitBetweenFloors()
+	}
 
 	// Polling rate configuration
 	inputPollRate := 25 * time.Millisecond // Adjust as needed
@@ -172,7 +178,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 			fmt.Println("Received order")
 			elev.Requests = receivedOrder
 			// fmt.Println(elev.Requests)
-			elev = fsmButtonPressed(elev, doorOpenCh)
+			elev = FsmButtonPressed(elev, doorOpenCh)
 
 		case currentFloor := <-ch_fsm.Ch_floorSensor:
 			// Handle floor sensor event

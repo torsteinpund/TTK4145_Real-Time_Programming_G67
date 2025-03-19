@@ -18,16 +18,16 @@ import (
 // }
 
 type OrderChannels struct {
-	LocalOrderChannel       chan OrderMatrix
-	LocalLightsChannel      chan OrderMatrix
-	OrdersFromMasterChannel chan GlobalOrderMap
-	OrdersToMasterChannel   chan NetworkMessage
-	ButtonEventChannel      chan ButtonEvent
-	FinishedFloorChannel    chan int
-	Ch_registerOrder		chan OrderEvent
-	Ch_toSlave				chan NetworkMessage
-	Ch_toSlaveTest			chan GlobalOrderMap
-	Ch_toFsm				chan OrderMatrix	
+	Ch_localOrder           chan OrderMatrix
+	Ch_localLights          chan OrderMatrix
+	Ch_orderFromMaster 		chan GlobalOrderMap
+	Ch_toMaster   			chan NetworkMessage
+	Ch_buttonPress      	chan ButtonEvent
+	Ch_clearedFloor    		chan int
+	Ch_registerOrder        chan OrderEvent
+	Ch_toSlave              chan GlobalOrderMap
+	Ch_toSlaveTest          chan GlobalOrderMap
+	Ch_toFsm                chan OrderMatrix
 }
 
 func OrderHandler(ch OrderChannels, ID string) {
@@ -35,7 +35,7 @@ func OrderHandler(ch OrderChannels, ID string) {
 
 	for {
 		select {
-		case buttonEvent := <-ch.ButtonEventChannel:
+		case buttonEvent := <-ch.Ch_buttonPress:
 			button := []ButtonEvent{buttonEvent}
 			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
 			// newOrderEvent := NetworkMessage{MsgType: "New OrderEvent", MsgData: orderEvent, Receipient: Master}
@@ -53,10 +53,9 @@ func OrderHandler(ch OrderChannels, ID string) {
 			// 	fmt.Println("OrderHandler: ", requests)
 			// 	// localLights = lights.SetCabLights(requests)
 			// }
-			ch.Ch_toFsm <- ordersFromMaster[ID]
+			ch.Ch_localOrder <- ordersFromMaster[ID]
 
-
-		case floor := <-ch.FinishedFloorChannel:
+		case floor := <-ch.Ch_clearedFloor:
 			orders := []ButtonEvent{}
 			for btn := 0; btn < NUMBUTTONTYPE; btn++ {
 				button := ButtonEvent{Floor: floor, Button: ButtonType(btn)}
@@ -66,7 +65,7 @@ func OrderHandler(ch OrderChannels, ID string) {
 
 			finishedOrder := OrderEvent{ElevatorID: ID, Completed: true, Orders: orders}
 			regFinishedOrder := NetworkMessage{MsgType: "Finished OrderEvent", MsgData: finishedOrder, Receipient: Master}
-			ch.OrdersToMasterChannel <- regFinishedOrder
+			ch.Ch_toMaster <- regFinishedOrder
 
 		}
 	}
