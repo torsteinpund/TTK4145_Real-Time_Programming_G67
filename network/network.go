@@ -4,7 +4,7 @@ import(
 	. "Driver-go/types"
 	"Driver-go/network/client"
 	"Driver-go/network/peers"
-
+	// "net"
 )
 
 type RXChannels struct {
@@ -27,3 +27,4 @@ func InitNettwork(ch_RX RXChannels, port int, id string, ch_transmitEnable <-cha
 	go c.RunClient(id, ch_Client)
 
 }
+

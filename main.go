@@ -35,6 +35,23 @@ func main() {
 	// fmt.Println("Elevator initialized DONE")
 	// fmt.Println(elevator.Avaliable)
 
+	// rxChannels := network.RXChannels{
+	// 	ElevatorUpdateChannel:  make(chan types.Elevator),
+	// 	OrderUpdateChannel:       make(chan types.OrderMatrix),
+	// 	RegisterOrderChannel:     make(chan types.OrderEvent),
+	// 	OrderCopyResponse:        make(chan types.GlobalOrderMap),
+	// 	OrdersFromMaster:         make(chan types.GlobalOrderMap),
+	// }
+
+	// hardwareChannels := elevio.HardwareChannels{
+	// 	Ch_buttonPress: make(chan elevio.ButtonEvent),
+	// 	Ch_floorSensor: make(chan int),
+	// 	Ch_stopButton:  make(chan bool),
+	// 	Ch_obstruction: make(chan bool),
+	// }
+
+
+
 	// masterChannels := master.MasterChannels{
 	// 	Ch_isMaster:          make(chan bool),
 	// 	Ch_peerLost:          make(chan string),
@@ -45,12 +62,11 @@ func main() {
 	// 	Ch_registeredPeer:    make(chan string),
 	// 	Ch_toSlaveTest:       make(chan GlobalOrderMap),
 	// }
-
+	
 	// fsmChannels := fsm.FsmChannels{
-	// 	Ch_buttonPress: make(chan ButtonEvent),
-	// 	Ch_floorSensor: make(chan int),
-	// 	Ch_stopButton:  make(chan bool),
-	// 	Ch_obstruction: make(chan bool),
+	// 	Ch_floorSensor: hardwareChannels.Ch_floorSensor,
+	// 	Ch_stopButton:  hardwareChannels.Ch_stopButton,
+	// 	Ch_obstruction: hardwareChannels.Ch_obstruction,
 	// 	Ch_stateUpdate: masterChannels.Ch_stateUpdate,
 	// 	Ch_toFsm:       make(chan OrderMatrix),
 	// }

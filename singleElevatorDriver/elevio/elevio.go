@@ -15,7 +15,14 @@ var _initialized bool = false
 var _mtx sync.Mutex
 var _conn net.Conn
 
-func InitHardwareConnection(addr string) {
+type HardwareChannels struct {
+	Ch_buttonPress chan ButtonEvent
+	Ch_floorSensor chan int
+	Ch_stopButton  chan bool
+	Ch_obstruction chan bool
+}
+
+func InitHardwareConnection(addr string, ch_hardware HardwareChannels) {
 	if _initialized {
 		fmt.Println("Driver already initialized!")
 		return
@@ -27,6 +34,11 @@ func InitHardwareConnection(addr string) {
 		panic(err.Error())
 	}
 	_initialized = true
+
+	go PollButtons(ch_hardware.Ch_buttonPress)
+	go PollFloorSensor(ch_hardware.Ch_floorSensor)
+	go PollStopButton(ch_hardware.Ch_stopButton)
+	go PollObstructionSwitch(ch_hardware.Ch_obstruction)
 }
 
 func ElevatorUninitialized() Elevator {

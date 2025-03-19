@@ -69,10 +69,10 @@ type GlobalOrderMap map[string]OrderMatrix
 
 type Elevator struct {
 	ID        string
-	Floor     int
-	Dirn      MotorDirection
+	Floor     int				`json:"floor"`
+	Dirn      MotorDirection	`json:"direction"`
 	Requests  OrderMatrix
-	Behaviour ElevatorBehaviour
+	Behaviour ElevatorBehaviour `json:"behaviour"`
 	Avaliable bool
 	Config    struct {
 		ClearRequestVariant ClearRequestVariant

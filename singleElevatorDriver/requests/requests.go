@@ -90,7 +90,7 @@ func RequestsShouldStop(elev Elevator) bool {
 	case MD_Stop:
 		fallthrough 
 	default:
-		return true
+		return false
 	}
 }
 
