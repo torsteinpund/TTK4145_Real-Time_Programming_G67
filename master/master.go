@@ -123,7 +123,6 @@ func RunMaster(ID string, ch_master MasterChannels) {
 			updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
 			fmt.Println("UpdatedGlobalOrders,", updatedGlobalOrders.MsgData)
 			ch_master.Ch_toSlave <- updatedGlobalOrders
-			//ch_master.Ch_toSlaveTest <- updatedGlobalOrders.MsgData.(GlobalOrderMap)
 
 		case masterCheck := <-ch_master.Ch_isMaster:
 			fmt.Println("Master has received a check if master")
@@ -153,7 +152,7 @@ func RunMaster(ID string, ch_master MasterChannels) {
 				cabOrders = elevator.CabOrders
 				reassign = elevator.Available != state.Avaliable //If the elevator is not available, we should reassign the order.
 			}
-
+			
 			allElevatorStates[state.ID] = StateSingleElevator{
 				state.Behaviour.ToString(),
 				state.Floor,

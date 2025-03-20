@@ -88,12 +88,12 @@ func main() {
 	// }
 
 	orderChannels := orderHandler.OrderChannels{
-		Ch_localOrders:           fsmChannels.Ch_localOrders,
+		Ch_localOrders:          fsmChannels.Ch_localOrders,
 		Ch_localLights:          fsmChannels.Ch_localLights,
 		//OrdersFromMasterChannel: make(chan GlobalOrderMap),
-		Ch_toMaster:   make(chan NetworkMessage),
+		Ch_toMaster:   			 fsmChannels.Ch_toMaster,
 		Ch_buttonPress:      	 hardwareChannels.Ch_buttonPress,
-		Ch_clearedFloor:    make(chan int),
+		Ch_clearedFloor:         fsmChannels.Ch_clearedFloor,
 		Ch_registerOrder:        masterChannels.Ch_registerOrder,
 		Ch_toSlave:              masterChannels.Ch_toSlave,
 		Ch_toSlaveTest:          masterChannels.Ch_toSlaveTest,

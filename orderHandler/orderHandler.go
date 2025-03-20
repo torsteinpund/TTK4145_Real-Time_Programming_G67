@@ -62,12 +62,11 @@ func OrderHandler(ch OrderChannels, ID string) {
 			for btn := 0; btn < NUMBUTTONTYPE; btn++ {
 				button := ButtonEvent{Floor: floor, Button: ButtonType(btn)}
 				orders = append(orders, button)
-
 			}
-
+			fmt.Println("Orders in cleared floor: ", orders)
 			finishedOrder := OrderEvent{ElevatorID: ID, Completed: true, Orders: orders}
 			regFinishedOrder := NetworkMessage{MsgType: "Finished OrderEvent", MsgData: finishedOrder, Receipient: Master}
-			ch.Ch_toMaster <- regFinishedOrder
+			ch.Ch_registerOrder <- regFinishedOrder.MsgData.(OrderEvent)
 
 		}
 	}

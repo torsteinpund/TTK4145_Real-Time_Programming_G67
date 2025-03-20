@@ -48,9 +48,10 @@ func FsmButtonPressed(orderMatrix OrderMatrix, elev Elevator) (OrderMatrix, Elev
 
 
 
-func fsmFloorArrival(orderMatrix OrderMatrix, newFloor int, elev Elevator) (OrderMatrix, Elevator) {
+func fsmFloorArrival(orderMatrix OrderMatrix, newFloor int, elev Elevator) (OrderMatrix, Elevator, bool) {
 
 	elev.Floor = newFloor
+	reqCleared := false
 
 	elevio.SetFloorIndicator(elev.Floor)
 
@@ -66,13 +67,14 @@ func fsmFloorArrival(orderMatrix OrderMatrix, newFloor int, elev Elevator) (Orde
 			timer.TimerStart(elev.Config.DoorOpenDuration)
 			orderMatrix = lights.SetCabLights(orderMatrix)
 			elev.Behaviour = ElevatorBehaviour(EB_DoorOpen)
+			reqCleared = true
 		}
 	default:
 		// No action
 		//elevio.SetMotorDirection(MD_Stop)
 	}
 
-	return orderMatrix, elev
+	return orderMatrix, elev, reqCleared
 }
 
 func fsmDoorTimeout(orderMatrix OrderMatrix, elev Elevator) (OrderMatrix, Elevator) {
@@ -114,7 +116,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 	orderMatrix := OrderMatrix{}
 
 	// Initialize system state
-	prevFloor := -1
+	prevFloor := elev.Floor
 	//timerActive := false
 	//var timerEndTime float64
 	obstructionActive := false
@@ -140,7 +142,8 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 
 			if currentFloor != prevFloor {
 				fmt.Printf("Arrived at floor %d\n", currentFloor)
-				orderMatrix, elev = fsmFloorArrival(orderMatrix, currentFloor, elev)
+				clearedFloor := false
+				orderMatrix, elev, clearedFloor = fsmFloorArrival(orderMatrix, currentFloor, elev)
 				elevio.SetFloorIndicator(currentFloor) // Update floor indicator lamp
 
 				// ch_fsm.Ch_stateUpdate<-elev
@@ -149,16 +152,21 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 					timer.TimerStart(3.0)
 					// fmt.Println("ti//Passes the updated statemer started")
 				}
-				// Stop and restart the timer when arriving at a floor
-				// Set door timeout to 3 seconds
-			}
+				fmt.Println("Cleared floor", clearedFloor)
+				if clearedFloor {
+					ch_fsm.Ch_clearedFloor <- currentFloor
+				}
+				fmt.Println("Cleared floor")
+			
+			
 			prevFloor = currentFloor
 			obstructionActive = false
 			elev.Avaliable = true
 			// updateElevator := NetworkMessage{MsgType: "elevatorupdatechannel", MsgData:  elev,Receipient: Master}
 			ch_fsm.Ch_stateUpdate <- elev
+			fmt.Println("Elevator state updated")
 			
-
+		}
 
 
 		case stopPressed := <-ch_fsm.Ch_stopButton:
