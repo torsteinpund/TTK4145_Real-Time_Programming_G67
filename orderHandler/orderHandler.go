@@ -18,14 +18,14 @@ import (
 // }
 
 type OrderChannels struct {
-	Ch_localOrder           chan OrderMatrix
+	Ch_localOrders          chan OrderMatrix
 	Ch_localLights          chan OrderMatrix
 	Ch_orderFromMaster 		chan GlobalOrderMap
 	Ch_toMaster   			chan NetworkMessage
 	Ch_buttonPress      	chan ButtonEvent
 	Ch_clearedFloor    		chan int
 	Ch_registerOrder        chan OrderEvent
-	Ch_toSlave              chan GlobalOrderMap
+	Ch_toSlave              chan NetworkMessage
 	Ch_toSlaveTest          chan GlobalOrderMap
 	Ch_toFsm                chan OrderMatrix
 }
@@ -53,7 +53,9 @@ func OrderHandler(ch OrderChannels, ID string) {
 			// 	fmt.Println("OrderHandler: ", requests)
 			// 	// localLights = lights.SetCabLights(requests)
 			// }
-			ch.Ch_localOrder <- ordersFromMaster[ID]
+			fmt.Println("OrdersFromMaster:,", ordersFromMaster[ID])
+			ch.Ch_localOrders <- ordersFromMaster[ID]
+			fmt.Println("Ordermatrix passed")
 
 		case floor := <-ch.Ch_clearedFloor:
 			orders := []ButtonEvent{}

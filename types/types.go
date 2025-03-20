@@ -71,7 +71,6 @@ type Elevator struct {
 	ID        string
 	Floor     int				`json:"floor"`
 	Dirn      MotorDirection	`json:"direction"`
-	Requests  OrderMatrix
 	Behaviour ElevatorBehaviour `json:"behaviour"`
 	Avaliable bool
 	Config    struct {

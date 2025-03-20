@@ -95,7 +95,7 @@ func RunMaster(ID string, ch_master MasterChannels) {
 				elevator.Available = true
 				allElevatorStates[newPeer] = elevator
 			}
-			fmt.Println("Ch_registered peer allelev, ",allElevatorStates)
+			
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 			fmt.Println("Master has reassigned the new peer")
 			ch_master.Ch_toSlave <- updatedOrders
@@ -121,7 +121,7 @@ func RunMaster(ID string, ch_master MasterChannels) {
 				}
 			}
 			updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
-			
+			fmt.Println("UpdatedGlobalOrders,", updatedGlobalOrders.MsgData)
 			ch_master.Ch_toSlave <- updatedGlobalOrders
 			//ch_master.Ch_toSlaveTest <- updatedGlobalOrders.MsgData.(GlobalOrderMap)
 
@@ -150,7 +150,7 @@ func RunMaster(ID string, ch_master MasterChannels) {
 			cabOrders := [NUMFLOORS]bool{}
 			
 			if exist {
-				cabOrders = getElevatorCabOrders(state.Requests)
+				cabOrders = elevator.CabOrders
 				reassign = elevator.Available != state.Avaliable //If the elevator is not available, we should reassign the order.
 			}
 

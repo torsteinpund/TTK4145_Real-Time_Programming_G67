@@ -17,28 +17,13 @@ import (
 	// "Driver-go/network/bcast"
 	// "Driver-go/network/conn"
 	// "Driver-go/network/localip"
-	"Driver-go/network"
-	"Driver-go/lights"
+	// "Driver-go/network"
+	// "Driver-go/lights"
 	. "Driver-go/types"
 )
 
 func main() {
 	fmt.Println("Hello, World!")
-	elevio.InitHardwareConnection("localhost:15657")
-	elevator := elevio.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{})
-
-	// // If the elevator starts at a valid floor, initialize its state
-	// elevator = fsm.FsmFloorArrival(elevio.GetFloor(), elevator)
-	// fmt.Println("Elevator initialized DONE")
-	// fmt.Println(elevator.Avaliable)
-
-	rxChannels := network.RXChannels{
-		ElevatorUpdateChannel:  make(chan Elevator),
-		OrderUpdateChannel:       make(chan OrderMatrix),
-		RegisterOrderChannel:     make(chan OrderEvent),
-		OrderCopyResponse:        make(chan GlobalOrderMap),
-		OrdersFromMaster:         make(chan GlobalOrderMap),
-	}
 
 	hardwareChannels := elevio.HardwareChannels{
 		Ch_buttonPress: make(chan ButtonEvent),
@@ -46,6 +31,22 @@ func main() {
 		Ch_stopButton:  make(chan bool),
 		Ch_obstruction: make(chan bool),
 	}
+	elevio.InitHardwareConnection("localhost:15657",hardwareChannels)
+	elevator := elevio.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{})
+
+	// // If the elevator starts at a valid floor, initialize its state
+	// elevator = fsm.FsmFloorArrival(elevio.GetFloor(), elevator)
+	// fmt.Println("Elevator initialized DONE")
+	// fmt.Println(elevator.Avaliable)
+
+	// rxChannels := network.RXChannels{
+	// 	ElevatorUpdateChannel:  make(chan Elevator),
+	// 	OrderUpdateChannel:       make(chan OrderMatrix),
+	// 	RegisterOrderChannel:     make(chan OrderEvent),
+	// 	OrderCopyResponse:        make(chan GlobalOrderMap),
+	// 	OrdersFromMaster:         make(chan GlobalOrderMap),
+	// }
+
 
 	masterChannels := master.MasterChannels{
 		Ch_isMaster:          make(chan bool),
@@ -66,6 +67,7 @@ func main() {
 		Ch_localOrders:  make(chan OrderMatrix),
 		Ch_toMaster:     make(chan NetworkMessage),
 		Ch_clearedFloor: make(chan int),
+		Ch_stateUpdate:  masterChannels.Ch_stateUpdate,
 	}
 
 	// peerChannels := peers.PeerChannels{
@@ -86,8 +88,8 @@ func main() {
 	// }
 
 	orderChannels := orderHandler.OrderChannels{
-		Ch_localOrder:           make(chan OrderMatrix),
-		Ch_localLights:          make(chan OrderMatrix),
+		Ch_localOrders:           fsmChannels.Ch_localOrders,
+		Ch_localLights:          fsmChannels.Ch_localLights,
 		//OrdersFromMasterChannel: make(chan GlobalOrderMap),
 		Ch_toMaster:   make(chan NetworkMessage),
 		Ch_buttonPress:      	 hardwareChannels.Ch_buttonPress,
@@ -95,7 +97,6 @@ func main() {
 		Ch_registerOrder:        masterChannels.Ch_registerOrder,
 		Ch_toSlave:              masterChannels.Ch_toSlave,
 		Ch_toSlaveTest:          masterChannels.Ch_toSlaveTest,
-		Ch_toFsm:                fsmChannels.Ch_toFsm,
 	}
 	// elevio.SetButtonLamp(ButtonType(1), 0, true)
 	// client := client.NewClient(elevator.ID)
@@ -104,7 +105,7 @@ func main() {
 	// go client.RunClient(elevator.ID,clientChannels)
 	go fsm.FsmRun(fsmChannels, elevator)
 	go orderHandler.OrderHandler(orderChannels, elevator.ID)
-	go lights.SetHallLights(orderChannels.Ch_localLights)
+	// go lights.SetHallLights(orderChannels.Ch_localLights)
 	go func() {
 		masterChannels.Ch_registeredPeer <- elevator.ID
 	}()

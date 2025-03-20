@@ -7,10 +7,10 @@ import (
 
 
 
-func RequestsAbove(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
+func RequestsAbove(orderMatrix OrderMatrix, floor int) bool {
 	for i := floor + 1; i < NUMFLOORS; i++ {
 		for j := 0; j < NUMBUTTONTYPE; j++ {
-			if req[i][j] { 
+			if orderMatrix[i][j] { 
 				return true
 			}
 		}
@@ -18,10 +18,10 @@ func RequestsAbove(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 	return false
 }
 
-func RequestsBelow(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
+func RequestsBelow(orderMatrix OrderMatrix, floor int) bool {
 	for i := 0; i < floor; i++ {
 		for j := 0; j < NUMBUTTONTYPE; j++ {
-			if req[i][j] { 
+			if orderMatrix[i][j] { 
 				return true
 			}
 		}
@@ -30,9 +30,9 @@ func RequestsBelow(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 }
 
 
-func RequestsHere(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
+func RequestsHere(orderMatrix OrderMatrix, floor int) bool {
 	for j := 0; j < NUMBUTTONTYPE; j++ {
-		if req[floor][j] { 
+		if orderMatrix[floor][j] { 
 			return true
 		}
 	}
@@ -40,34 +40,34 @@ func RequestsHere(req [NUMFLOORS][NUMBUTTONTYPE]bool, floor int) bool {
 }
 
 
-func RequestsChooseDirection(elev Elevator) DirnBehaviourPair {
+func RequestsChooseDirection(orderMatrix OrderMatrix, elev Elevator) DirnBehaviourPair {
 	switch elev.Dirn {
 	case MD_Up:
-		if RequestsAbove(elev.Requests, elev.Floor) {
+		if RequestsAbove(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Up, Behaviour:EB_Moving}
-		} else if RequestsHere(elev.Requests, elev.Floor) {
+		} else if RequestsHere(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Down, Behaviour:EB_DoorOpen}
-		} else if RequestsBelow(elev.Requests, elev.Floor) {
+		} else if RequestsBelow(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Down, Behaviour:EB_Moving}
 		} else {
 			return DirnBehaviourPair{Dirn:MD_Stop, Behaviour:EB_Idle}
 		}
 	case MD_Down:
-		if RequestsBelow(elev.Requests, elev.Floor) {
+		if RequestsBelow(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Down, Behaviour:EB_Moving}
-		} else if RequestsHere(elev.Requests, elev.Floor) {
+		} else if RequestsHere(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Up, Behaviour:EB_DoorOpen}
-		} else if RequestsAbove(elev.Requests, elev.Floor) {
+		} else if RequestsAbove(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Up, Behaviour:EB_Moving}
 		} else {
 			return DirnBehaviourPair{Dirn:MD_Stop, Behaviour:EB_Idle}
 		}
 	case MD_Stop:
-		if RequestsHere(elev.Requests, elev.Floor) {
+		if RequestsHere(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Stop, Behaviour:EB_DoorOpen}
-		} else if RequestsAbove(elev.Requests, elev.Floor) {
+		} else if RequestsAbove(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Up, Behaviour:EB_Moving}
-		} else if RequestsBelow(elev.Requests, elev.Floor) {
+		} else if RequestsBelow(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Down, Behaviour:EB_Moving}
 		} else {
 			return DirnBehaviourPair{Dirn:MD_Stop, Behaviour:EB_Idle}
@@ -77,16 +77,16 @@ func RequestsChooseDirection(elev Elevator) DirnBehaviourPair {
 	}
 }
 
-func RequestsShouldStop(elev Elevator) bool {
+func RequestsShouldStop(orderMatrix OrderMatrix, elev Elevator) bool {
 	switch elev.Dirn {
 	case MD_Down:
-		return elev.Requests[elev.Floor][BT_HallDown] ||
-			elev.Requests[elev.Floor][BT_Cab]  ||
-			!RequestsBelow(elev.Requests, elev.Floor)
+		return orderMatrix[elev.Floor][BT_HallDown] ||
+			orderMatrix[elev.Floor][BT_Cab]  ||
+			!RequestsBelow(orderMatrix, elev.Floor)
 	case MD_Up:
-		return elev.Requests[elev.Floor][BT_HallUp]  ||
-			elev.Requests[elev.Floor][BT_Cab]  ||
-			!RequestsAbove(elev.Requests, elev.Floor)
+		return orderMatrix[elev.Floor][BT_HallUp]  ||
+			orderMatrix[elev.Floor][BT_Cab]  ||
+			!RequestsAbove(orderMatrix, elev.Floor)
 	case MD_Stop:
 		fallthrough 
 	default:
@@ -94,7 +94,7 @@ func RequestsShouldStop(elev Elevator) bool {
 	}
 }
 
-func RequestsShouldClearImmediately(elev Elevator, btnFloor int, btnType ButtonType) bool {
+func RequestsShouldClearImmediately(orderMatrix OrderMatrix, elev Elevator, btnFloor int, btnType ButtonType) bool {
 	switch elev.Config.ClearRequestVariant {
 	case CV_All:
 		return elev.Floor == btnFloor
@@ -110,41 +110,38 @@ func RequestsShouldClearImmediately(elev Elevator, btnFloor int, btnType ButtonT
 	}
 }
 
-func RequestsClearAtCurrentFloor(elev Elevator, onClearedRequest func(ButtonType, int)) Elevator {
+func RequestsClearAtCurrentFloor(orderMatrix OrderMatrix, elev Elevator) (OrderMatrix, Elevator) {
 	switch elev.Config.ClearRequestVariant {
 	case CV_All:
 		for btn := 0; btn < NUMBUTTONTYPE; btn++ {
-			if elev.Requests[elev.Floor][btn]  {
-				elev.Requests[elev.Floor][btn] = false
-				if onClearedRequest != nil {
-					onClearedRequest(ButtonType(btn), elev.Floor)
-				}
+			if orderMatrix[elev.Floor][btn]  {
+				orderMatrix[elev.Floor][btn] = false
 			}
 		}
 
 
 	case CV_InDirn:
-		elev.Requests[elev.Floor][BT_Cab] = false
+		orderMatrix[elev.Floor][BT_Cab] = false
 
 		switch elev.Dirn {
 		case MD_Up:
-			if !RequestsAbove(elev.Requests, elev.Floor) && !elev.Requests[elev.Floor][BT_Cab]{
-				elev.Requests[elev.Floor][BT_Cab] = false
+			if !RequestsAbove(orderMatrix, elev.Floor) && !orderMatrix[elev.Floor][BT_Cab]{
+				orderMatrix[elev.Floor][BT_Cab] = false
 			}
-			elev.Requests[elev.Floor][BT_Cab] = false
+			orderMatrix[elev.Floor][BT_Cab] = false
 
 		case MD_Down:
-			if !RequestsBelow(elev.Requests, elev.Floor) && !elev.Requests[elev.Floor][BT_Cab]{
-				elev.Requests[elev.Floor][BT_Cab] = false
+			if !RequestsBelow(orderMatrix, elev.Floor) && !orderMatrix[elev.Floor][BT_Cab]{
+				orderMatrix[elev.Floor][BT_Cab] = false
 			}
-			elev.Requests[elev.Floor][BT_Cab] = false
+			orderMatrix[elev.Floor][BT_Cab] = false
 
 		case MD_Stop:
 			fallthrough
 		default:
-			elev.Requests[elev.Floor][BT_HallUp] = false
-			elev.Requests[elev.Floor][BT_HallDown] = false
+			orderMatrix[elev.Floor][BT_HallUp] = false
+			orderMatrix[elev.Floor][BT_HallDown] = false
 		}
 	}
-	return elev 
+	return orderMatrix, elev 
 }
