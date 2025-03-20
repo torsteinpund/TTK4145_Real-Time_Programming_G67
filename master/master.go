@@ -153,6 +153,7 @@ func RunMaster(ID string, ch_master MasterChannels) {
 				cabOrders = elevator.CabOrders
 				reassign = elevator.Available != state.Avaliable //If the elevator is not available, we should reassign the order.
 			}
+			
 
 			allElevatorStates[state.ID] = StateSingleElevator{
 				state.Behaviour.ToString(),
