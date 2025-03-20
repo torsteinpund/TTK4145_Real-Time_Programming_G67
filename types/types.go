@@ -69,10 +69,10 @@ type GlobalOrderMap map[string]OrderMatrix
 
 type Elevator struct {
 	ID        string
-	Floor     int				`json:"floor"`
-	Dirn      MotorDirection	`json:"direction"`
+	Floor     int               `json:"floor"`
+	Dirn      MotorDirection    `json:"direction"`
 	Behaviour ElevatorBehaviour `json:"behaviour"`
-	Avaliable bool
+	Available bool
 	Config    struct {
 		ClearRequestVariant ClearRequestVariant
 		DoorOpenDuration    float64
@@ -87,13 +87,13 @@ const (
 	Master
 )
 
-func (behaviour ElevatorBehaviour) ToString() string{
+func (behaviour ElevatorBehaviour) ToString() string {
 	behavList := []string{"idle", "doorOpen", "moving"}
 	return behavList[int(behaviour)]
 }
 
-func (dirn MotorDirection) ToString() string{
-	dirnList := []string{"down","stop","up"}
+func (dirn MotorDirection) ToString() string {
+	dirnList := []string{"down", "stop", "up"}
 	return dirnList[dirn+1]
 }
 

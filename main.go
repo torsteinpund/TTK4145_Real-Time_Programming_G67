@@ -33,7 +33,7 @@ func main() {
 	}
 	elevio.InitHardwareConnection("localhost:15657",hardwareChannels)
 	elevator := elevio.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{})
-
+	
 	// // If the elevator starts at a valid floor, initialize its state
 	// elevator = fsm.FsmFloorArrival(elevio.GetFloor(), elevator)
 	// fmt.Println("Elevator initialized DONE")
@@ -46,6 +46,7 @@ func main() {
 	// 	OrderCopyResponse:        make(chan GlobalOrderMap),
 	// 	OrdersFromMaster:         make(chan GlobalOrderMap),
 	// }
+
 
 
 	masterChannels := master.MasterChannels{
@@ -68,6 +69,7 @@ func main() {
 		Ch_toMaster:     make(chan NetworkMessage),
 		Ch_clearedFloor: make(chan int),
 		Ch_stateUpdate:  masterChannels.Ch_stateUpdate,
+		// Ch_doorOpen:     make(chan bool),
 	}
 
 	// peerChannels := peers.PeerChannels{
@@ -98,6 +100,12 @@ func main() {
 		Ch_toSlave:              masterChannels.Ch_toSlave,
 		Ch_toSlaveTest:          masterChannels.Ch_toSlaveTest,
 	}
+
+	// doorChannels := fsm.DoorChannels{
+	// 	Ch_doorOpen: fsmChannels.Ch_doorOpen,
+	// 	Ch_toSlave: masterChannels.Ch_toSlave,
+	// }
+
 	// elevio.SetButtonLamp(ButtonType(1), 0, true)
 	// client := client.NewClient(elevator.ID)
 

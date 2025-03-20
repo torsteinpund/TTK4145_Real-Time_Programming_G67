@@ -31,7 +31,6 @@ type OrderChannels struct {
 }
 
 func OrderHandler(ch OrderChannels, ID string) {
-	ordersFromMaster := make(GlobalOrderMap)
 
 	for {
 		select {
@@ -41,21 +40,16 @@ func OrderHandler(ch OrderChannels, ID string) {
 			// newOrderEvent := NetworkMessage{MsgType: "New OrderEvent", MsgData: orderEvent, Receipient: Master}
 			// ch.OrdersToMasterChannel <- newOrderEvent
 			ch.Ch_registerOrder <- orderEvent
-			fmt.Println("OrderEvent sent to master from orderhandler after buttonEvent")
 
 		case fromMaster := <-ch.Ch_toSlave:
-			fmt.Println("OrdersFromMaster received in orderHandler")
-			// localRequests := ordersFromMaster.MsgData.[ID]
-			//ch.LocalOrderChannel <- localRequests
-			// localLights := localRequests
-			ordersFromMaster = fromMaster.MsgData.(GlobalOrderMap)
+			
+			ordersFromMaster := fromMaster.MsgData.(GlobalOrderMap)
 			// for _, requests := range ordersFromMaster {
 			// 	fmt.Println("OrderHandler: ", requests)
 			// 	// localLights = lights.SetCabLights(requests)
 			// }
-			fmt.Println("OrdersFromMaster:,", ordersFromMaster[ID])
 			ch.Ch_localOrders <- ordersFromMaster[ID]
-			fmt.Println("Ordermatrix passed")
+			fmt.Println("Ordermatrix passed", ordersFromMaster[ID])
 
 		case floor := <-ch.Ch_clearedFloor:
 			orders := []ButtonEvent{}

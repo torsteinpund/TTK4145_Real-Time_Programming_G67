@@ -70,7 +70,7 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
 		Floor:     -1,
 		Dirn:      MD_Stop,
 		Behaviour: ElevatorBehaviour(EB_Idle),
-		Avaliable: true,
+		Available: true,
 		Config: struct {
 			ClearRequestVariant ClearRequestVariant
 			DoorOpenDuration    float64
@@ -81,8 +81,6 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
 			TimeBetweenFloors:   2.0,
 		},
 	}
-
-
 
 	if initialFloor := GetFloor(); initialFloor == -1 {
 		fmt.Println("Elevator is between floors on startup. Running initialization...")
@@ -96,8 +94,8 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
 
 func initBetweenFloors() (ElevatorBehaviour, MotorDirection) {
 	// Move the elevator down until it reaches a floor
-	
-	for{
+
+	for {
 		SetMotorDirection(MD_Down)
 		if GetFloor() != -1 {
 			break

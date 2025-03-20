@@ -95,7 +95,7 @@ func RunMaster(ID string, ch_master MasterChannels) {
 				elevator.Available = true
 				allElevatorStates[newPeer] = elevator
 			}
-			
+
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 			fmt.Println("Master has reassigned the new peer")
 			ch_master.Ch_toSlave <- updatedOrders
@@ -121,7 +121,6 @@ func RunMaster(ID string, ch_master MasterChannels) {
 				}
 			}
 			updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
-			fmt.Println("UpdatedGlobalOrders,", updatedGlobalOrders.MsgData)
 			ch_master.Ch_toSlave <- updatedGlobalOrders
 			//ch_master.Ch_toSlaveTest <- updatedGlobalOrders.MsgData.(GlobalOrderMap)
 
@@ -148,25 +147,25 @@ func RunMaster(ID string, ch_master MasterChannels) {
 			reassign := false
 			elevator, exist := allElevatorStates[state.ID]
 			cabOrders := [NUMFLOORS]bool{}
-			
+
 			if exist {
 				cabOrders = elevator.CabOrders
-				reassign = elevator.Available != state.Avaliable //If the elevator is not available, we should reassign the order.
+				reassign = elevator.Available != state.Available //If the elevator is not available, we should reassign the order.
 			}
-			
 
 			allElevatorStates[state.ID] = StateSingleElevator{
 				state.Behaviour.ToString(),
 				state.Floor,
 				state.Dirn.ToString(),
-				state.Avaliable,
+				state.Available,
 				cabOrders}
-			
+
 			// fmt.Println("NewAllElevator",allElevatorStates[state.ID])
 			if reassign {
 				updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 				ch_master.Ch_toSlave <- updatedOrders
 			}
+			fmt.Println("AllElevatorStates: ", allElevatorStates)
 
 		case orderCopy := <-ch_master.Ch_orderCopyResponse:
 			fmt.Println("Master has received an order copy response")
@@ -219,7 +218,7 @@ func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorState
 			availableElevatorsMap[elevatorID] = elevatorState
 		}
 	}
-	fmt.Println(unavailableElevators, availableElevatorsMap)
+	// fmt.Println(unavailableElevators, availableElevatorsMap)
 	//Calculates which available elevators should take the hallorders of the lost peer
 	allElevators := AllElevators{GlobalOrders: hallOrders, States: availableElevatorsMap}
 	globOrderMap := hallAssignerExec(allElevators)
