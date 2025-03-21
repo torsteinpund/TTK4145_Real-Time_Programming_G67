@@ -11,7 +11,7 @@ type SimpleNetworkMsg struct {
 	MsgData []byte		`json:"msgData"`
 }
 
-func decodeMessage(ch_RX RXChannels, msg SimpleNetworkMsg){
+func DecodeMessage(ch_RX RXChannels, msg SimpleNetworkMsg){
 
 	rxTypes := reflect.TypeOf(ch_RX) // Get the type of the struct RXChannels
 	rxValue := reflect.ValueOf(ch_RX) // Get the value of the struct RXChannels

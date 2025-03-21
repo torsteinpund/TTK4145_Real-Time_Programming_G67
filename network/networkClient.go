@@ -1,8 +1,10 @@
-package client
+package network
 
 import (
+	// "Driver-go/network/networkMsg"
 	"Driver-go/network/peers"
 	"Driver-go/types"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -11,14 +13,10 @@ import (
 )
 
 type ClientChannels struct {
-	InputChannel             chan types.NetworkMessage
-	OutputChannel            chan types.NetworkMessage
-	PeerUpdateChannel        chan peers.PeersUpdate
-	PeerLostChannel          chan string
-	PeerNewChannel           chan string
-	IsMasterChannel          chan bool
-	RegisteredNewPeerChannel chan string
-	
+	Ch_peerUpdate        chan peers.PeersUpdate
+	Ch_peerLost          chan string
+	Ch_newPeer           chan string
+	Ch_isMaster          chan bool
 }
 
 
@@ -38,40 +36,39 @@ func NewClient(id string) *Client {
 	}
 }
 
-func (c *Client) RunClient(currentMasterID string, clientChannels ClientChannels) {
-
+func (c *Client) RunClient(id string, ch_RX RXChannels, clientChannels ClientChannels, Ch_netWorkMsg <-chan types.NetworkMessage) {
+	currentMasterID := id
 	for {
 		select {
-		case msg := <-clientChannels.InputChannel:
-			fmt.Println("Mottatt network-melding:", msg)
-
-		case update := <-clientChannels.PeerUpdateChannel:
+		case update := <-clientChannels.Ch_peerUpdate:
 			fmt.Println("Peer-oppdatering mottatt:", update)
 
 			peerstatus, peerID := c.updatePeers(update)
 			if peerstatus == "lostPeer" {
 				if checkIfMaster(currentMasterID, peerID) {
-					clientChannels.IsMasterChannel <- false
+					clientChannels.Ch_isMaster <- false
 					newMasterID := updateMaster(c.activePeers)
 					if newMasterID != "" {
 						currentMasterID = newMasterID
-						clientChannels.IsMasterChannel <- true
+						clientChannels.Ch_isMaster <- true
 						delete(c.activePeers, peerID)
-						clientChannels.PeerLostChannel <- peerID
+						clientChannels.Ch_peerLost <- peerID
 					}
 				} else {
 					delete(c.activePeers, peerID)
-					clientChannels.PeerLostChannel <- peerID
+					clientChannels.Ch_peerLost <- peerID
 				}
 			} else if peerstatus == "newPeer" {
 				c.activePeers[peerID] = peers.Peer{ID: peerID}
-				clientChannels.OutputChannel <- types.NetworkMessage{MsgType: "Registered new peer", MsgData: peerID, Receipient: types.All}
-				clientChannels.RegisteredNewPeerChannel <- peerID
+				// clientChannels.Ch_output <- types.NetworkMessage{MsgType: "Registered new peer", MsgData: peerID}
+				clientChannels.Ch_newPeer <- peerID
 			}
 
-		case <-c.stopCh:
-			fmt.Println("Client stoppes...")
-			return
+		case networkMsg := <-Ch_netWorkMsg:
+			msgData, _ := json.Marshal(networkMsg.MsgData)
+			msgType := networkMsg.MsgType
+			simpleNetworkMessage := SimpleNetworkMsg{MsgType: msgType, MsgData: msgData}
+			go DecodeMessage(ch_RX, simpleNetworkMessage)
 		}
 	}
 }
@@ -130,8 +127,3 @@ func updateMaster(activePeers map[string]peers.Peer) string {
 	return currentMasterID
 }
 
-func GetID(ipAdress string) string {
-	parts := strings.Split(ipAdress, ".")
-
-	return parts[len(parts)-1]
-}

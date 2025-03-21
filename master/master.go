@@ -19,8 +19,7 @@ type MasterChannels struct {
 	Ch_registerOrder     chan OrderEvent
 	Ch_stateUpdate       chan Elevator
 	Ch_orderCopyResponse chan GlobalOrderMap
-	Ch_registeredPeer    chan string
-	Ch_toSlaveTest       chan GlobalOrderMap
+	Ch_newPeer           chan string
 }
 
 // StateSingleElevator represents the state of a single elevator
@@ -57,9 +56,8 @@ func RunMaster(ID string, ch_master MasterChannels) {
 	hallOrders := [NUMFLOORS][NUMHALLBUTTONS]bool{}
 
 	orderCopy := NetworkMessage{
-		MsgType:    "ordercopyresponse",
-		Receipient: All,
-		MsgData:    true,
+		MsgType: "ordercopyresponse",
+		MsgData: true,
 	}
 
 	// updatedOrders := make(GlobalOrderMap)
@@ -84,7 +82,7 @@ func RunMaster(ID string, ch_master MasterChannels) {
 
 			ch_master.Ch_toSlave <- updatedOrders
 
-		case newPeer := <-ch_master.Ch_registeredPeer:
+		case newPeer := <-ch_master.Ch_newPeer:
 			fmt.Println("Master has registered a new peer: ", newPeer)
 			elevator, exists := allElevatorStates[newPeer]
 			if !exists {
@@ -122,7 +120,6 @@ func RunMaster(ID string, ch_master MasterChannels) {
 			}
 			updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
 			ch_master.Ch_toSlave <- updatedGlobalOrders
-			//ch_master.Ch_toSlaveTest <- updatedGlobalOrders.MsgData.(GlobalOrderMap)
 
 		case masterCheck := <-ch_master.Ch_isMaster:
 			fmt.Println("Master has received a check if master")
@@ -195,8 +192,11 @@ func RunMaster(ID string, ch_master MasterChannels) {
 					}
 				}
 			}
-			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			ch_master.Ch_toSlave <- updatedOrders
+			
+			
+			tempMessage := reAssignOrders(hallOrders, allElevatorStates)
+			copyUpdatedOrders := NetworkMessage{MsgType: "ordercopyresponse", MsgData: tempMessage.MsgData}
+			ch_master.Ch_toSlave <- copyUpdatedOrders
 
 		default:
 			// fmt.Println("Master is waiting for a message")
@@ -233,7 +233,7 @@ func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorState
 		globOrderMap[elevatorID] = orders
 	}
 
-	updatedOrders := NetworkMessage{MsgType: "orderupdatechannel", MsgData: globOrderMap, Receipient: All}
+	updatedOrders := NetworkMessage{MsgType: "orderupdatechannel", MsgData: globOrderMap}
 
 	return updatedOrders
 }

@@ -68,11 +68,11 @@ type OrderMatrix [NUMFLOORS][NUMBUTTONTYPE]bool
 type GlobalOrderMap map[string]OrderMatrix
 
 type Elevator struct {
-	ID        string
+	ID        string			`json:"id"`
 	Floor     int               `json:"floor"`
 	Dirn      MotorDirection    `json:"direction"`
 	Behaviour ElevatorBehaviour `json:"behaviour"`
-	Available bool
+	Available bool				`json:"available"`
 	Config    struct {
 		ClearRequestVariant ClearRequestVariant
 		DoorOpenDuration    float64
@@ -80,12 +80,8 @@ type Elevator struct {
 	}
 }
 
-type Receipient int
 
-const (
-	All Receipient = iota
-	Master
-)
+
 
 func (behaviour ElevatorBehaviour) ToString() string {
 	behavList := []string{"idle", "doorOpen", "moving"}
@@ -100,5 +96,4 @@ func (dirn MotorDirection) ToString() string {
 type NetworkMessage struct {
 	MsgType    string
 	MsgData    interface{}
-	Receipient Receipient
 }

@@ -4,18 +4,8 @@ import (
 	// "Driver-go/lights"
 	. "Driver-go/types"
 	"fmt"
-	// "net"
+	"time"
 )
-
-// func SetAllLocalLights(req [NUMFLOORS][NUMBUTTONTYPE]int) [NUMFLOORS][NUMBUTTONTYPE]int {
-// 	for floor := 0; floor < NUMFLOORS; floor++ {
-// 		for btn := 0; btn < NUMBUTTONTYPE; btn++ {
-// 			state := req[floor][btn]
-// 			elevio.SetButtonLamp(ButtonType(btn), floor, state == 1)
-// 		}
-// 	}
-// 	return req
-// }
 
 type OrderChannels struct {
 	Ch_localOrders          chan OrderMatrix
@@ -26,28 +16,24 @@ type OrderChannels struct {
 	Ch_clearedFloor    		chan int
 	Ch_registerOrder        chan OrderEvent
 	Ch_toSlave              chan NetworkMessage
-	Ch_toSlaveTest          chan GlobalOrderMap
-	Ch_toFsm                chan OrderMatrix
+	Ch_orderCopyResponse	chan GlobalOrderMap
 }
 
 func OrderHandler(ch OrderChannels, ID string) {
-
+	orderCopyTime := 2 * time.Second
+	ordersFromMaster := GlobalOrderMap{}
 	for {
 		select {
 		case buttonEvent := <-ch.Ch_buttonPress:
 			button := []ButtonEvent{buttonEvent}
 			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
-			// newOrderEvent := NetworkMessage{MsgType: "New OrderEvent", MsgData: orderEvent, Receipient: Master}
-			// ch.OrdersToMasterChannel <- newOrderEvent
-			ch.Ch_registerOrder <- orderEvent
+			newOrderEvent := NetworkMessage{MsgType: "orderupdatechannel", MsgData: orderEvent}
+			ch.Ch_toMaster <- newOrderEvent
+			// ch.Ch_registerOrder <- orderEvent
 
 		case fromMaster := <-ch.Ch_toSlave:
 			
-			ordersFromMaster := fromMaster.MsgData.(GlobalOrderMap)
-			// for _, requests := range ordersFromMaster {
-			// 	fmt.Println("OrderHandler: ", requests)
-			// 	// localLights = lights.SetCabLights(requests)
-			// }
+			ordersFromMaster = fromMaster.MsgData.(GlobalOrderMap)
 			ch.Ch_localOrders <- ordersFromMaster[ID]
 			fmt.Println("Ordermatrix passed", ordersFromMaster[ID])
 
@@ -60,8 +46,17 @@ func OrderHandler(ch OrderChannels, ID string) {
 			}
 
 			finishedOrder := OrderEvent{ElevatorID: ID, Completed: true, Orders: orders}
-			regFinishedOrder := NetworkMessage{MsgType: "Finished OrderEvent", MsgData: finishedOrder, Receipient: Master}
-			ch.Ch_toMaster <- regFinishedOrder
+			regFinishedOrder := NetworkMessage{MsgType: "orderupdatechannel", MsgData: finishedOrder}
+			fmt.Println("Finished cleared floor: ", regFinishedOrder)
+			ch.Ch_registerOrder <- finishedOrder
+
+		
+		case <-time.After(orderCopyTime):
+			orderCopy := NetworkMessage{
+				MsgType: "ordercopyresponse",
+				MsgData: ordersFromMaster,
+			}
+			ch.Ch_toMaster <- orderCopy
 
 		}
 	}

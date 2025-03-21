@@ -1,7 +1,6 @@
 package elevio
 
 import (
-	"Driver-go/network/client"
 	. "Driver-go/types"
 	"fmt"
 	"net"
@@ -58,7 +57,7 @@ func ElevatorUninitialized() Elevator {
 	}
 }
 
-func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
+func InitElevator(numFloors int, numButtonTypes int, elev Elevator, id string) Elevator {
 	if numFloors > NUMFLOORS || numButtonTypes > NUMBUTTONTYPE {
 		fmt.Println("Error: Configuration exceeds allowed array size.")
 		return Elevator{}
@@ -66,7 +65,7 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator) Elevator {
 
 	elev = Elevator{
 		// Start on an invalid floor
-		ID:        client.GetID("10.100.23.255"),
+		ID:        id,
 		Floor:     -1,
 		Dirn:      MD_Stop,
 		Behaviour: ElevatorBehaviour(EB_Idle),
