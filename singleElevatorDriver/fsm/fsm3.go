@@ -1,7 +1,6 @@
 package fsm
 
 import (
-	"Driver-go/lights"
 	"Driver-go/singleElevatorDriver/elevio"
 	"Driver-go/singleElevatorDriver/requests"
 	"Driver-go/singleElevatorDriver/timer"
@@ -11,14 +10,14 @@ import (
 )
 
 type FsmChannels struct {
-	Ch_floorSensor  chan int
-	Ch_stopButton   chan bool
-	Ch_obstruction  chan bool
-	Ch_localLights  chan OrderMatrix
-	Ch_localOrders  chan OrderMatrix
-	Ch_toMaster     chan NetworkMessage
-	Ch_clearedFloor chan int
-	Ch_stateUpdate  chan Elevator
+	Ch_floorSensor     chan int
+	Ch_stopButton      chan bool
+	Ch_obstruction     chan bool
+	Ch_localLights     chan OrderMatrix
+	Ch_localOrders     chan OrderMatrix
+	Ch_networkToMaster chan NetworkMessage
+	Ch_clearedFloor    chan int
+	Ch_stateUpdate     chan Elevator
 }
 
 func fsmButtonPressed(orderMatrix OrderMatrix, elev Elevator, doorOpenChan chan<- bool) (OrderMatrix, Elevator) {
@@ -31,7 +30,6 @@ func fsmButtonPressed(orderMatrix OrderMatrix, elev Elevator, doorOpenChan chan<
 	switch dirnBehaviour.Behaviour {
 
 	case EB_DoorOpen:
-		
 
 	case EB_Moving:
 		elevio.SetMotorDirection(elev.Dirn)
@@ -58,7 +56,6 @@ func fsmFloorArrival(orderMatrix OrderMatrix, newFloor int, elev Elevator) (Orde
 			elevio.SetDoorOpenLamp(true)
 			orderMatrix = requests.RequestsClearAtCurrentFloor(orderMatrix, elev)
 			timer.TimerStart(elev.Config.DoorOpenDuration)
-			orderMatrix = lights.SetCabLights(orderMatrix)
 			elev.Behaviour = ElevatorBehaviour(EB_DoorOpen)
 			reqCleared = true
 		}
@@ -85,7 +82,6 @@ func fsmDoorTimeout(orderMatrix OrderMatrix, elev Elevator) (OrderMatrix, Elevat
 			timer.TimerStart(elev.Config.DoorOpenDuration)
 			orderMatrix = requests.RequestsClearAtCurrentFloor(orderMatrix, elev)
 			// elev.Requests = lights.SetHallLights(elev.Requests)
-			orderMatrix = lights.SetCabLights(orderMatrix)
 
 		case ElevatorBehaviour(EB_Moving), ElevatorBehaviour(EB_Idle):
 			// Shut the door and start moving
@@ -103,7 +99,7 @@ func fsmDoorTimeout(orderMatrix OrderMatrix, elev Elevator) (OrderMatrix, Elevat
 func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 	fmt.Println("FSM Started!")
 	// inputPollRate := 25 * time.Millisecond // Adjust as needed
-    // go HandleDoor(doorchannels, ch_fsm.Ch_obstruction)
+	// go HandleDoor(doorchannels, ch_fsm.Ch_obstruction)
 	orderMatrix := OrderMatrix{}
 	//prevFloor := elev.Floor
 	obstructionActive := false
@@ -114,191 +110,175 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 	// errorTimeout := time.NewTimer(5 * time.Second)
 	elevio.SetDoorOpenLamp(false)
 
+	// for {
+	//     select {
+	//     case <- doorchannels.Ch_doorClosed:
+	//         switch elev.Behaviour {
+	//             case EB_DoorOpen:
+	//                 switch {
+	//                 case requests.RequestsAbove(orderMatrix, elev.Floor) || requests.RequestsBelow(orderMatrix, elev.Floor):
+	//                     dirnBehav = requests.RequestsChooseDirection(orderMatrix, elev)
+	//                     elevio.SetMotorDirection(dirnBehav.Dirn)
+	//                     elev.Behaviour = EB_Moving
+	//                     elev.Dirn = dirnBehav.Dirn
+	//                     ch_fsm.Ch_stateUpdate <- elev
 
-    // for {
-    //     select {
-    //     case <- doorchannels.Ch_doorClosed:
-    //         switch elev.Behaviour {
-    //             case EB_DoorOpen:
-    //                 switch {
-    //                 case requests.RequestsAbove(orderMatrix, elev.Floor) || requests.RequestsBelow(orderMatrix, elev.Floor):
-    //                     dirnBehav = requests.RequestsChooseDirection(orderMatrix, elev)
-    //                     elevio.SetMotorDirection(dirnBehav.Dirn)
-    //                     elev.Behaviour = EB_Moving
-    //                     elev.Dirn = dirnBehav.Dirn
-    //                     ch_fsm.Ch_stateUpdate <- elev
-                    
-    //                 case requests.RequestsHere(orderMatrix, elev.Floor):
-    //                     doorOpenCh <- true
-    //                     elevio.SetMotorDirection(MD_Stop)
-    //                     orderMatrix = requests.RequestsClearAtCurrentFloor(orderMatrix, elev)
-    //                     elev.Behaviour = EB_DoorOpen
-    //                     elev.Dirn = MD_Stop
-    //                     ch_fsm.Ch_stateUpdate <- elev
-    //                     break    
-    //                 }
-                    
+	//                 case requests.RequestsHere(orderMatrix, elev.Floor):
+	//                     doorOpenCh <- true
+	//                     elevio.SetMotorDirection(MD_Stop)
+	//                     orderMatrix = requests.RequestsClearAtCurrentFloor(orderMatrix, elev)
+	//                     elev.Behaviour = EB_DoorOpen
+	//                     elev.Dirn = MD_Stop
+	//                     ch_fsm.Ch_stateUpdate <- elev
+	//                     break
+	//                 }
 
+	//             case EB_Idle:
 
-    //             case EB_Idle:
+	//             case EB_Moving:
 
+	//         }
 
-    //             case EB_Moving:
+	for {
+		select {
+		case receivedOrder := <-ch_fsm.Ch_localOrders:
+			orderMatrix = receivedOrder
+			// fmt.Println("Received order:", receivedOrder)
+			// fmt.Println("Elevator behaviour:", elev.Behaviour)
+			// fmt.Println("Available:", elev.Available)
+			switch elev.Behaviour {
+			case EB_Idle:
+				if requests.RequestsHere(orderMatrix, elev.Floor) {
+					doorOpenCh <- true
+					break
+				}
 
+			case EB_Moving:
+				break
 
+			case EB_DoorOpen:
+				if requests.RequestsHere(orderMatrix, elev.Floor) {
+					doorOpenCh <- true
+					break
+				}
+				break
+			}
 
+		case currentFloor := <-ch_fsm.Ch_floorSensor:
+			// fmt.Println("Arrived at floor", currentFloor)
+			elev.Floor = currentFloor
+			elevio.SetFloorIndicator(elev.Floor)
 
-    //         }
+			switch elev.Behaviour {
+			case EB_Moving:
+				if requests.RequestsShouldStop(orderMatrix, elev) {
+					elev.Behaviour = EB_DoorOpen
+					elev.Dirn = MD_Stop
+					doorOpenCh <- true
+					break
+				}
 
-        
+				if emptyOrderMatrix(orderMatrix) {
+					elev.Behaviour = EB_Idle
+					elevio.SetMotorDirection(MD_Stop)
+					break
+				}
 
+			case EB_DoorOpen:
+				elevio.SetMotorDirection(MD_Stop)
 
-    for {
-        select {
-            case receivedOrder := <- ch_fsm.Ch_localOrders:
-                orderMatrix = receivedOrder
-                fmt.Println("Received order:", receivedOrder)
-                fmt.Println("Elevator behaviour:", elev.Behaviour)
-                fmt.Println("Available:", elev.Available)
-                orderMatrix = lights.SetCabLights(orderMatrix)
-                switch elev.Behaviour {
-                    case EB_Idle:
-                        if requests.RequestsHere(orderMatrix, elev.Floor) {
-                            doorOpenCh <- true
-                            break
-                        }
+			case EB_Idle:
+				elevio.SetMotorDirection(MD_Stop)
 
-                    case EB_Moving:
-                        break
+			}
+			elev.Available = true
 
-                    case EB_DoorOpen:
-                        if requests.RequestsHere(orderMatrix, elev.Floor) {
-                            doorOpenCh <- true
-                            break
-                        }
-                        break
-                    }
+			ch_fsm.Ch_stateUpdate <- elev
 
-            case currentFloor := <-ch_fsm.Ch_floorSensor:
-                fmt.Println("Arrived at floor", currentFloor)
-                elev.Floor = currentFloor
-                elevio.SetFloorIndicator(elev.Floor)
+		case <-doorOpenCh:
+			elev.Behaviour = EB_DoorOpen
+			elev.Dirn = MD_Stop
+			elevio.SetMotorDirection(MD_Stop)
+			elevio.SetDoorOpenLamp(true)
+			doorClose.Reset(3 * time.Second)
+			// fmt.Println("Order matrix before clearing at current floor:", orderMatrix)
+			orderMatrix = requests.RequestsClearAtCurrentFloor(orderMatrix, elev)
+			// fmt.Println("Order matrix after clearing at current floor:", orderMatrix)
+			ch_fsm.Ch_clearedFloor <- elev.Floor
 
-                switch elev.Behaviour {
-                    case EB_Moving:
-                        if requests.RequestsShouldStop(orderMatrix, elev) {
-                            doorOpenCh <- true
-                            break
-                        }
+		case <-doorClose.C:
 
-                        if emptyOrderMatrix(orderMatrix) {
-                            elev.Behaviour = EB_Idle
-                            elevio.SetMotorDirection(MD_Stop)
-                            break
-                        }
+			if obstructionActive {
+				doorClose.Reset(3 * time.Second)
+				break
+			}
+			elevio.SetDoorOpenLamp(false)
+			doorClose.Stop()
+			elev.Behaviour = EB_Idle
+			// fmt.Println("Door closed")
+			if emptyOrderMatrix(orderMatrix) {
+				elev.Behaviour = EB_Idle
+				break
+			} else {
+				dirnBehaviour := requests.RequestsChooseDirection(orderMatrix, elev)
+				elev.Dirn = dirnBehaviour.Dirn
+				elev.Behaviour = ElevatorBehaviour(dirnBehaviour.Behaviour)
+				elevio.SetMotorDirection(elev.Dirn)
+			}
+			// ch_fsm.Ch_clearedFloor <- elev.Floor
 
+		case stopPressed := <-ch_fsm.Ch_stopButton:
+			// Handle stop button event
+			if stopPressed {
+				lastKnownDirection = elev.Dirn
+				fmt.Println("Stop button pressed!")
+				fmt.Println(lastKnownDirection)
+				elevio.SetStopLamp(true)
+				elevio.SetMotorDirection(MD_Stop)
+				// stop = true
+			} else {
+				fmt.Println("Stop button released!")
+				elevio.SetStopLamp(false)
+			}
 
+		case obstruction := <-ch_fsm.Ch_obstruction:
+			fmt.Println("Obstruction detected")
+			if obstruction {
+				obstructionActive = true
+				elev.Available = false
+				fmt.Println("obstruction switch")
+			} else if !obstruction {
+				obstructionActive = false
+				elev.Available = true
+				fmt.Println("obstruction switch off")
+			}
 
-                    case EB_DoorOpen:
-                        elevio.SetMotorDirection(MD_Stop)
+		default:
+			if (elev.Behaviour == EB_Idle || elev.Behaviour == EB_Moving) && elev.Available {
+				newDirPair := requests.RequestsChooseDirection(orderMatrix, elev)
+				if newDirPair.Dirn != elev.Dirn {
+					switch newDirPair.Dirn {
+					case MD_Stop:
+						elev.Behaviour = EB_Idle
+						elevio.SetMotorDirection(MD_Stop)
 
+					case MD_Up:
+						elev.Behaviour = EB_Moving
+						elevio.SetMotorDirection(MD_Up)
 
-                    case EB_Idle:
-                        elevio.SetMotorDirection(MD_Stop)
+					case MD_Down:
+						elev.Behaviour = EB_Moving
+						elevio.SetMotorDirection(MD_Down)
+					}
+					elev.Dirn = newDirPair.Dirn
 
-                }
-                elev.Available = true
+				}
+			}
 
-                ch_fsm.Ch_stateUpdate <- elev
+			time.Sleep(10 * time.Millisecond)
 
-            case <-doorOpenCh:
-                println("FSM: Door Open")
-                elev.Behaviour = EB_DoorOpen
-                elevio.SetMotorDirection(MD_Stop)
-                elevio.SetDoorOpenLamp(true)
-		        doorClose.Reset(3 * time.Second)
-                fmt.Println("Order matrix before clearing at current floor:", orderMatrix)
-		        orderMatrix = requests.RequestsClearAtCurrentFloor(orderMatrix, elev)
-                fmt.Println("Order matrix after clearing at current floor:", orderMatrix)
-                orderMatrix = lights.SetCabLights(orderMatrix)
-                ch_fsm.Ch_clearedFloor <- elev.Floor
-
-            case <-doorClose.C:
-
-                if obstructionActive {
-                    doorClose.Reset(3 * time.Second)
-                    break
-                }
-                elevio.SetDoorOpenLamp(false)
-                doorClose.Stop()
-                elev.Behaviour = EB_Idle
-                fmt.Println("Door closed")
-                if emptyOrderMatrix(orderMatrix) {
-                    elev.Behaviour = EB_Idle
-                    break
-                } else{
-                    dirnBehaviour := requests.RequestsChooseDirection(orderMatrix, elev)
-                    elev.Dirn = dirnBehaviour.Dirn
-                    elev.Behaviour = ElevatorBehaviour(dirnBehaviour.Behaviour)
-                    elevio.SetMotorDirection(elev.Dirn)
-                }
-                // ch_fsm.Ch_clearedFloor <- elev.Floor
-
-            case stopPressed := <-ch_fsm.Ch_stopButton:
-                // Handle stop button event
-                if stopPressed {
-                    lastKnownDirection = elev.Dirn
-                    fmt.Println("Stop button pressed!")
-                    fmt.Println(lastKnownDirection)
-                    elevio.SetStopLamp(true)
-                    elevio.SetMotorDirection(MD_Stop)
-                    // stop = true
-                } else {
-                    fmt.Println("Stop button released!")
-                    elevio.SetStopLamp(false)
-                }
-
-		
-            case obstruction := <-ch_fsm.Ch_obstruction:
-                fmt.Println("Obstruction detected")
-                if obstruction {
-                    obstructionActive = true
-                    elev.Available = false
-                    fmt.Println("obstruction switch")
-                } else if !obstruction {
-                    obstructionActive = false
-                    elev.Available = true
-                    fmt.Println("obstruction switch off")
-                }
-
-            default:
-                if (elev.Behaviour == EB_Idle || elev.Behaviour == EB_Moving) && elev.Available {
-                    newDirPair := requests.RequestsChooseDirection(orderMatrix, elev)
-                    if newDirPair.Dirn != elev.Dirn {
-                        switch newDirPair.Dirn {
-                            case MD_Stop:
-                                elev.Behaviour = EB_Idle
-                                elevio.SetMotorDirection(MD_Stop)
-
-                            case MD_Up:
-                                elev.Behaviour = EB_Moving
-                                elevio.SetMotorDirection(MD_Up)
-
-                            case MD_Down:
-                                elev.Behaviour = EB_Moving
-                                elevio.SetMotorDirection(MD_Down)
-                            }
-                        elev.Dirn = newDirPair.Dirn
-
-                    }
-                }
-
-                time.Sleep(10 * time.Millisecond)
-
-        }
-    }
-
-
+		}
+	}
 
 	// for {
 	// 	select {
@@ -361,7 +341,6 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 	// 	case currentFloor := <-ch_fsm.Ch_floorSensor:
 	// 		elev.Floor = currentFloor
 	// 		elevio.SetFloorIndicator(elev.Floor)
-			
 
 	// 		// if currentFloor != prevFloor {
 	// 		// 	fmt.Printf("Arrived at floor %d\n", currentFloor)
@@ -404,7 +383,6 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 	// 			elevio.SetStopLamp(false)
 	// 		}
 
-		
 	// 	case obstruction := <-ch_fsm.Ch_obstruction:
 	// 		fmt.Println("Obstruction detected")
 	// 		if obstruction {
@@ -425,15 +403,13 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 	// }
 }
 
-
-
-func emptyOrderMatrix(orderMatrix [NUMFLOORS][NUMBUTTONTYPE]bool) bool{
-    for _, row := range orderMatrix {
-        for _, value := range row {
-            if value {
-                return false // Found a `true`, so not all are `false`
-            }
-        }
-    }
-    return true // All values are `false`
+func emptyOrderMatrix(orderMatrix [NUMFLOORS][NUMBUTTONTYPE]bool) bool {
+	for _, row := range orderMatrix {
+		for _, value := range row {
+			if value {
+				return false // Found a `true`, so not all are `false`
+			}
+		}
+	}
+	return true // All values are `false`
 }

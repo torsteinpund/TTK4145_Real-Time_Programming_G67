@@ -11,11 +11,11 @@ import (
 )
 
 type RXChannels struct {
-	Ch_stateUpdate     chan Elevator       		`addr:"elevatorupdatechannel"`
-	Ch_orderUpdate     chan OrderMatrix    		`addr:"orderupdatechannel"`
-	Ch_registerOrder   chan OrderEvent     		`addr:"registerorderchannel"`
-	Ch_orderCopyResponse  chan GlobalOrderMap 	`addr:"ordercopyresponse"`
-	Ch_ordersFromMaster chan GlobalOrderMap 	`addr:"ordersfrommaster"`
+	Ch_stateUpdate     		chan Elevator       	`addr:"elevatorupdatechannel"`
+	Ch_registerOrder   		chan OrderEvent     	`addr:"registerorderchannel"`
+	Ch_orderCopyResponse  	chan GlobalOrderMap 	`addr:"ordercopyresponse"`
+	Ch_orderCopyRequest 	chan bool 				`addr:"ordercopyrequest"`
+	Ch_ordersFromMaster 	chan GlobalOrderMap 	`addr:"ordersfrommaster"`
 }
 
 func InitNettwork(ch_RX RXChannels, Ch_netWorkMsg <-chan NetworkMessage, detectionPort int, id string, ch_transmitEnable <-chan bool, ch_Client ClientChannels) {

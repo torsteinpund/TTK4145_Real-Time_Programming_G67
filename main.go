@@ -12,6 +12,8 @@ import (
 	"Driver-go/singleElevatorDriver/elevio"
 	"Driver-go/singleElevatorDriver/fsm"
 
+	// "time"
+
 	// "Driver-go/network/conn"
 	"Driver-go/network"
 	"Driver-go/network/localip"
@@ -57,35 +59,35 @@ func main() {
 	// fmt.Println(elevator.Avaliable)
 
 	rxChannels := network.RXChannels{
-		Ch_stateUpdate:   make(chan Elevator),
-		Ch_orderUpdate:   make(chan OrderMatrix),
-		Ch_registerOrder: make(chan OrderEvent),
-		Ch_orderCopyResponse:  make(chan GlobalOrderMap),
-		Ch_ordersFromMaster: make(chan GlobalOrderMap),
+		Ch_stateUpdate:       make(chan Elevator),
+		Ch_registerOrder:     make(chan OrderEvent),
+		Ch_orderCopyResponse: make(chan GlobalOrderMap),
+		Ch_ordersFromMaster:  make(chan GlobalOrderMap),
+		Ch_orderCopyRequest:  make(chan bool),
 	}
 
 	masterChannels := master.MasterChannels{
-		Ch_isMaster:          make(chan bool),
-		Ch_peerLost:          make(chan string),
-		Ch_toSlave:           Ch_netWorkMsg,
-		Ch_registerOrder:     rxChannels.Ch_registerOrder,
-		Ch_stateUpdate:       rxChannels.Ch_stateUpdate,
-		Ch_orderCopyResponse: rxChannels.Ch_orderCopyResponse,
-		Ch_newPeer:           make(chan string),
+		Ch_isMaster:       make(chan bool),
+		Ch_peerLost:       make(chan string),
+		Ch_networkToSlave: Ch_netWorkMsg,
+		Ch_registerOrder:  rxChannels.Ch_registerOrder,
+		Ch_stateUpdate:    rxChannels.Ch_stateUpdate,
+		Ch_orderCopy:      rxChannels.Ch_orderCopyResponse,
+		Ch_newPeer:        make(chan string),
 	}
 
 	fsmChannels := fsm.FsmChannels{
-		Ch_floorSensor:  hardwareChannels.Ch_floorSensor,
-		Ch_stopButton:   hardwareChannels.Ch_stopButton,
-		Ch_obstruction:  hardwareChannels.Ch_obstruction,
-		Ch_localLights:  make(chan OrderMatrix),
-		Ch_localOrders:  make(chan OrderMatrix),
-		Ch_toMaster:     Ch_netWorkMsg,
-		Ch_clearedFloor: make(chan int),
-		Ch_stateUpdate:  rxChannels.Ch_stateUpdate,
+		Ch_floorSensor:     hardwareChannels.Ch_floorSensor,
+		Ch_stopButton:      hardwareChannels.Ch_stopButton,
+		Ch_obstruction:     hardwareChannels.Ch_obstruction,
+		Ch_localLights:     make(chan OrderMatrix),
+		Ch_localOrders:     make(chan OrderMatrix),
+		Ch_networkToMaster: Ch_netWorkMsg,
+		Ch_clearedFloor:    make(chan int),
+		Ch_stateUpdate:     rxChannels.Ch_stateUpdate,
 	}
 
-	clientChannels :=  network.ClientChannels{
+	clientChannels := network.ClientChannels{
 		Ch_peerUpdate: make(chan peers.PeersUpdate),
 		Ch_peerLost:   make(chan string),
 		Ch_newPeer:    masterChannels.Ch_newPeer,
@@ -93,15 +95,16 @@ func main() {
 	}
 
 	orderChannels := orderHandler.OrderChannels{
-		Ch_localOrders:     	 fsmChannels.Ch_localOrders,
-		Ch_localLights:     	 fsmChannels.Ch_localLights,
-		Ch_clearedFloor:    	 fsmChannels.Ch_clearedFloor,
-		Ch_orderFromMaster: 	 masterChannels.Ch_orderCopyResponse,
-		Ch_toSlave:         	 masterChannels.Ch_toSlave,
-		Ch_toMaster:        	 Ch_netWorkMsg,
-		Ch_buttonPress:     	 hardwareChannels.Ch_buttonPress,
-		Ch_registerOrder:   	 rxChannels.Ch_registerOrder,
-		Ch_orderCopyResponse: 	 rxChannels.Ch_orderCopyResponse,
+		Ch_localOrders:       fsmChannels.Ch_localOrders,
+		Ch_localLights:       fsmChannels.Ch_localLights,
+		Ch_clearedFloor:      fsmChannels.Ch_clearedFloor,
+		Ch_orderFromMaster:   masterChannels.Ch_orderCopy,
+		Ch_networkToSlave:    masterChannels.Ch_networkToSlave,
+		Ch_networkToMaster:   Ch_netWorkMsg,
+		Ch_buttonPress:       hardwareChannels.Ch_buttonPress,
+		Ch_registerOrder:     rxChannels.Ch_registerOrder,
+		Ch_orderCopyResponse: rxChannels.Ch_orderCopyResponse,
+		Ch_orderCopyRequest:  rxChannels.Ch_orderCopyRequest,
 	}
 
 	// doorChannels := fsm.DoorChannels{
@@ -113,11 +116,10 @@ func main() {
 
 	// elevio.SetButtonLamp(ButtonType(1), 0, true)
 
-	network.InitNettwork(rxChannels, Ch_netWorkMsg, 19191, id, Ch_peerTxEnable, clientChannels)
+	network.InitNettwork(rxChannels, Ch_netWorkMsg, 18191, id, Ch_peerTxEnable, clientChannels)
 	Ch_peerTxEnable <- true
-	go bcast.Transmitter(19191, rxChannels.Ch_stateUpdate, rxChannels.Ch_orderUpdate, rxChannels.Ch_registerOrder, rxChannels.Ch_ordersFromMaster)
-	go bcast.Receiver(19191, rxChannels.Ch_stateUpdate, rxChannels.Ch_orderUpdate, rxChannels.Ch_registerOrder, rxChannels.Ch_ordersFromMaster)
-	
+	go bcast.Transmitter(19191, rxChannels.Ch_stateUpdate, rxChannels.Ch_registerOrder, rxChannels.Ch_ordersFromMaster)
+	go bcast.Receiver(19191, rxChannels.Ch_stateUpdate, rxChannels.Ch_registerOrder, rxChannels.Ch_ordersFromMaster)
 
 	go master.RunMaster(elevator.ID, masterChannels)
 	// go client.RunClient(elevator.ID,clientChannels)
@@ -125,19 +127,43 @@ func main() {
 	go orderHandler.OrderHandler(orderChannels, elevator.ID)
 	// go lights.SetHallLights(orderChannels.Ch_localLights)
 
-	go func() {
-		masterChannels.Ch_newPeer <- elevator.ID
+	// go func() {
+	// 	masterChannels.Ch_newPeer <- elevator.ID
 
-	}()
-	for {
-		select {
-		case p := <-rxChannels.Ch_stateUpdate:
-			fmt.Println("Received from network: ", p.ID)
-			fmt.Println("Received from networjk: ", p.Floor)
+	// }()
 
-		default:
+	// timetest := 5 * time.Second
 
-		}
+	// for {
+	// 	select {
+	// 	case p := <-rxChannels.Ch_stateUpdate:
+	// 		fmt.Println("Received from network: ", p.ID)
+	// 		fmt.Println("Received from networjk: ", p.Floor)
+	// // 		// case <-time.After(timetest):
+	// // 		// 	masterChannels.Ch_isMaster <- false
+	// // 		// 	fmt.Println("I am not master")
+	// // 		// 	time.Sleep(1 * time.Second)
+	// // 		// 	globalOrderMap := GlobalOrderMap{
+	// // 		// 		"12": OrderMatrix{
+	// // 		// 			{true, false, false}, // Etasje 0: Opp, Ned, Kabin
+	// // 		// 			{false, true, false}, // Etasje 1: Opp, Ned, Kabin
+	// // 		// 			{false, false, true}, // Etasje 2: Opp, Ned, Kabin
+	// // 		// 		},
+	// // 		// 		"elevator2": OrderMatrix{
+	// // 		// 			{false, false, true}, // Etasje 0: Opp, Ned, Kabin
+	// // 		// 			{true, false, false}, // Etasje 1: Opp, Ned, Kabin
+	// // 		// 			{false, true, false}, // Etasje 2: Opp, Ned, Kabin
+	// // 		// 		},
+	// // 		// 	}
+	// // 		// 	netMsg := NetworkMessage{
+	// // 		// 		MsgType: "ordersfrommaster",
+	// // 		// 		MsgData: globalOrderMap,
+	// // 		// 	}
+	// // 		// 	masterChannels.Ch_networkToSlave <- netMsg
+	// // 		// default:
 
-	}
+	// 	}
+
+	// }
+	select{}
 }

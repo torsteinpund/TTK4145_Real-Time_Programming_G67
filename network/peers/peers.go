@@ -79,11 +79,9 @@ func Receiver(port int, peerUpdateCh chan<- PeersUpdate) {
 				delete(lastSeen, k)
 			}
 		}
-
 		// Sending update
 		if updated {
 			p.PeersID = make([]string, 0, len(lastSeen))
-
 			for k, _ := range lastSeen {
 				p.PeersID = append(p.PeersID, k)
 			}
