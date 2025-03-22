@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 )
 
+
 type SimpleNetworkMsg struct {
 	MsgType string		`json:"msgType"`
 	MsgData []byte		`json:"msgData"`

@@ -16,7 +16,7 @@ type FsmChannels struct {
 	Ch_localLights     chan OrderMatrix
 	Ch_localOrders     chan OrderMatrix
 	Ch_networkToMaster chan NetworkMessage
-	Ch_clearedFloor    chan int
+	Ch_clearedFloor    chan ClearedFloorInfo
 	Ch_stateUpdate     chan Elevator
 }
 
@@ -173,7 +173,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 			case EB_Moving:
 				if requests.RequestsShouldStop(orderMatrix, elev) {
 					elev.Behaviour = EB_DoorOpen
-					elev.Dirn = MD_Stop
+					// elev.Dirn = MD_Stop
 					doorOpenCh <- true
 					break
 				}
@@ -197,6 +197,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 
 		case <-doorOpenCh:
 			elev.Behaviour = EB_DoorOpen
+			lastKnownDirection = elev.Dirn
 			elev.Dirn = MD_Stop
 			elevio.SetMotorDirection(MD_Stop)
 			elevio.SetDoorOpenLamp(true)
@@ -204,7 +205,9 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 			// fmt.Println("Order matrix before clearing at current floor:", orderMatrix)
 			orderMatrix = requests.RequestsClearAtCurrentFloor(orderMatrix, elev)
 			// fmt.Println("Order matrix after clearing at current floor:", orderMatrix)
-			ch_fsm.Ch_clearedFloor <- elev.Floor
+			fmt.Println("Door opened in dooropenCH")
+			clearedFloorInfo := ClearedFloorInfo{Floor: elev.Floor, LastKnownDirection: lastKnownDirection}
+			ch_fsm.Ch_clearedFloor <- clearedFloorInfo
 
 		case <-doorClose.C:
 
@@ -225,7 +228,7 @@ func FsmRun(ch_fsm FsmChannels, elev Elevator) {
 				elev.Behaviour = ElevatorBehaviour(dirnBehaviour.Behaviour)
 				elevio.SetMotorDirection(elev.Dirn)
 			}
-			// ch_fsm.Ch_clearedFloor <- elev.Floor
+	
 
 		case stopPressed := <-ch_fsm.Ch_stopButton:
 			// Handle stop button event

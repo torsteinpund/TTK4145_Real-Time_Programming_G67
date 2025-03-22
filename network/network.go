@@ -18,6 +18,12 @@ type RXChannels struct {
 	Ch_ordersFromMaster 	chan GlobalOrderMap 	`addr:"ordersfrommaster"`
 }
 
+type TXChannels struct {
+	Ch_stateUpdate     		chan Elevator       	`addr:"elevatorupdatechannel"`
+	Ch_registerOrder   		chan OrderEvent     	`addr:"registerorderchannel"`
+	Ch_ordersFromMaster 	chan GlobalOrderMap 	`addr:"ordersfrommaster"`
+}
+
 func InitNettwork(ch_RX RXChannels, Ch_netWorkMsg <-chan NetworkMessage, detectionPort int, id string, ch_transmitEnable <-chan bool, ch_Client ClientChannels) {
 	// Initialize client
 	// peerUpdateChannel := make(chan peers.PeersUpdate)
@@ -26,7 +32,7 @@ func InitNettwork(ch_RX RXChannels, Ch_netWorkMsg <-chan NetworkMessage, detecti
 	go peers.Receiver(detectionPort, ch_Client.Ch_peerUpdate)
 
 	c := NewClient(id) // This should maybe be in the main and passed as an argument instead
-	go c.RunClient(id, ch_RX, ch_Client, Ch_netWorkMsg)
+	go c.RunClient(id,ch_Client,ch_RX, Ch_netWorkMsg)
 
 }
 

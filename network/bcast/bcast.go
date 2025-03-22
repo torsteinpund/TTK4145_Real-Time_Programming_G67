@@ -25,7 +25,7 @@ func Transmitter(port int, chans ...interface{}) {
 	}
 
 	conn := conn.DialBroadcastUDP(port)
-	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("255.255.255.255:%d", port))
+	addr, _ := net.ResolveUDPAddr("udp4", fmt.Sprintf("127.255.255.255:%d", port))
 	for {
 		chosen, value, _ := reflect.Select(selectCases)
 		jsonstr, _ := json.Marshal(value.Interface())
@@ -51,6 +51,7 @@ func Receiver(port int, chans ...interface{}) {
 	checkArgs(chans...)
 	chansMap := make(map[string]interface{})
 	for _, ch := range chans {
+		fmt.Println("Making map")
 		chansMap[reflect.TypeOf(ch).Elem().String()] = ch
 	}
 
@@ -61,20 +62,26 @@ func Receiver(port int, chans ...interface{}) {
 		if e != nil {
 			fmt.Printf("bcast.Receiver(%d, ...):ReadFrom() failed: \"%+v\"\n", port, e)
 		}
-
+		fmt.Println("Testing if received!")
 		var ttj typeTaggedJSON
 		json.Unmarshal(buf[0:n], &ttj)
 		ch, ok := chansMap[ttj.TypeId]
+		fmt.Println("TTJ: ", ttj.TypeId)
 		if !ok {
+			fmt.Println("continue...")
 			continue
 		}
 		v := reflect.New(reflect.TypeOf(ch).Elem())
 		json.Unmarshal(ttj.JSON, v.Interface())
+		fmt.Println("Whadup")
+		fmt.Println("Receiver: skal sende verdien:", reflect.Indirect(v).Interface())
+		fmt.Println("Receiver: til kanal med type:", reflect.TypeOf(ch).Elem())
 		reflect.Select([]reflect.SelectCase{{
 			Dir:  reflect.SelectSend,
 			Chan: reflect.ValueOf(ch),
 			Send: reflect.Indirect(v),
 		}})
+		fmt.Println("Testing if received2!")
 	}
 }
 

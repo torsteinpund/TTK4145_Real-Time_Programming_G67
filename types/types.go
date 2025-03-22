@@ -24,9 +24,9 @@ const (
 type MotorDirection int
 
 const (
-	MD_Up   MotorDirection = 1
-	MD_Down MotorDirection = -1
-	MD_Stop MotorDirection = 0
+	MD_Up      MotorDirection = 1
+	MD_Down    MotorDirection = -1
+	MD_Stop    MotorDirection = 0
 )
 
 type Direction int
@@ -50,9 +50,15 @@ type ButtonEvent struct {
 	Button ButtonType
 }
 
+type ClearedFloorInfo struct{
+	Floor int
+	LastKnownDirection MotorDirection
+}
+
+
 type OrderEvent struct {
 	ElevatorID string
-	Completed  bool
+	Completed  [NUMBUTTONTYPE]bool
 	Orders     []ButtonEvent
 }
 
