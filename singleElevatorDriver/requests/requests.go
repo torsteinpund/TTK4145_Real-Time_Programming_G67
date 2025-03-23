@@ -110,7 +110,7 @@ func RequestsShouldClearImmediately(orderMatrix OrderMatrix, elev Elevator, btnF
 	}
 }
 
-func RequestsClearAtCurrentFloor(orderMatrix OrderMatrix, elev Elevator) (OrderMatrix) {
+func RequestsClearAtCurrentFloor(orderMatrix OrderMatrix, elev Elevator, dirn MotorDirection) (OrderMatrix) {
 	switch elev.Config.ClearRequestVariant {
 	case CV_All:
 		for btn := 0; btn < NUMBUTTONTYPE; btn++ {
@@ -123,7 +123,7 @@ func RequestsClearAtCurrentFloor(orderMatrix OrderMatrix, elev Elevator) (OrderM
 	case CV_InDirn:
 		orderMatrix[elev.Floor][BT_Cab] = false
 
-		switch elev.Dirn {
+		switch dirn {
 		case MD_Up:
 			if !RequestsAbove(orderMatrix, elev.Floor) && !orderMatrix[elev.Floor][BT_Cab]{
 				orderMatrix[elev.Floor][BT_Cab] = false
@@ -137,10 +137,9 @@ func RequestsClearAtCurrentFloor(orderMatrix OrderMatrix, elev Elevator) (OrderM
 			orderMatrix[elev.Floor][BT_Cab] = false
 
 		case MD_Stop:
-			fallthrough
-		default:
 			orderMatrix[elev.Floor][BT_HallUp] = false
 			orderMatrix[elev.Floor][BT_HallDown] = false
+	
 		}
 	}
 	return orderMatrix

@@ -8,7 +8,7 @@ import (
 	"Driver-go/orderHandler"
 	"fmt"
 
-	"Driver-go/network/peers"
+	// "Driver-go/network/peers"
 	"Driver-go/singleElevatorDriver/elevio"
 	"Driver-go/singleElevatorDriver/fsm"
 
@@ -44,126 +44,43 @@ func main() {
 		IP = fmt.Sprintf(localIP)
 		id = network.GetID(IP)
 	}
+	id = "1"
 
-	fmt.Println("ID: ", id)
-
-	elevio.InitHardwareConnection("localhost:15657", hardwareChannels)
+	elevio.InitHardwareConnection("localhost:15658", hardwareChannels)
 	elevator := elevio.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{}, id)
 
-	Ch_netWorkMsg := make(chan NetworkMessage)
 	Ch_peerTxEnable := make(chan bool)
-
-	// // If the elevator starts at a valid floor, initialize its state
-	// elevator = fsm.FsmFloorArrival(elevio.GetFloor(), elevator)
-	// fmt.Println("Elevator initialized DONE")
-	// fmt.Println(elevator.Avaliable)
+	Ch_isMaster := make(chan bool)
+	Ch_peerLost := make(chan string)
+	Ch_newPeer := make(chan string)
+	Ch_localOrders := make(chan OrderMatrix)
+	Ch_clearedFloor := make(chan DirnFloorPair)
+	// Ch_orderCopyResponse := make(chan GlobalOrderMap)
 
 	rxChannels := network.RXChannels{
 		Ch_stateUpdate:       make(chan Elevator),
 		Ch_registerOrder:     make(chan OrderEvent),
-		Ch_orderCopyResponse: make(chan GlobalOrderMap),
 		Ch_ordersFromMaster:  make(chan GlobalOrderMap),
 		Ch_orderCopyRequest:  make(chan bool),
 	}
 
-	masterChannels := master.MasterChannels{
-		Ch_isMaster:       make(chan bool),
-		Ch_peerLost:       make(chan string),
-		Ch_networkToSlave: Ch_netWorkMsg,
-		Ch_registerOrder:  rxChannels.Ch_registerOrder,
-		Ch_stateUpdate:    rxChannels.Ch_stateUpdate,
-		Ch_orderCopy:      rxChannels.Ch_orderCopyResponse,
-		Ch_newPeer:        make(chan string),
+	txChannels := network.TXChannels{
+		Ch_stateUpdate:      make(chan Elevator),
+		Ch_orderEventToMaster:    make(chan OrderEvent),
+		Ch_ordersFromMaster: make(chan GlobalOrderMap),
 	}
 
-	fsmChannels := fsm.FsmChannels{
-		Ch_floorSensor:     hardwareChannels.Ch_floorSensor,
-		Ch_stopButton:      hardwareChannels.Ch_stopButton,
-		Ch_obstruction:     hardwareChannels.Ch_obstruction,
-		Ch_localLights:     make(chan OrderMatrix),
-		Ch_localOrders:     make(chan OrderMatrix),
-		Ch_networkToMaster: Ch_netWorkMsg,
-		Ch_clearedFloor:    make(chan int),
-		Ch_stateUpdate:     rxChannels.Ch_stateUpdate,
-	}
 
-	clientChannels := network.ClientChannels{
-		Ch_peerUpdate: make(chan peers.PeersUpdate),
-		Ch_peerLost:   make(chan string),
-		Ch_newPeer:    masterChannels.Ch_newPeer,
-		Ch_isMaster:   masterChannels.Ch_isMaster,
-	}
-
-	orderChannels := orderHandler.OrderChannels{
-		Ch_localOrders:       fsmChannels.Ch_localOrders,
-		Ch_localLights:       fsmChannels.Ch_localLights,
-		Ch_clearedFloor:      fsmChannels.Ch_clearedFloor,
-		Ch_orderFromMaster:   masterChannels.Ch_orderCopy,
-		Ch_networkToSlave:    masterChannels.Ch_networkToSlave,
-		Ch_networkToMaster:   Ch_netWorkMsg,
-		Ch_buttonPress:       hardwareChannels.Ch_buttonPress,
-		Ch_registerOrder:     rxChannels.Ch_registerOrder,
-		Ch_orderCopyResponse: rxChannels.Ch_orderCopyResponse,
-		Ch_orderCopyRequest:  rxChannels.Ch_orderCopyRequest,
-	}
-
-	// doorChannels := fsm.DoorChannels{
-	// 	Ch_doorOpen: fsmChannels.Ch_doorOpen,
-	// 	Ch_toSlave: masterChannels.Ch_toSlave,
-	// }
-
-	// go peers.Transmitter(19191, )
-
-	// elevio.SetButtonLamp(ButtonType(1), 0, true)
-
-	network.InitNettwork(rxChannels, Ch_netWorkMsg, 18191, id, Ch_peerTxEnable, clientChannels)
+	network.InitNettwork(rxChannels, 18191, id, Ch_peerTxEnable, Ch_isMaster, Ch_peerLost, Ch_newPeer)
 	Ch_peerTxEnable <- true
-	go bcast.Transmitter(19191, rxChannels.Ch_stateUpdate, rxChannels.Ch_registerOrder, rxChannels.Ch_ordersFromMaster)
+	go bcast.Transmitter(19191, txChannels.Ch_stateUpdate, txChannels.Ch_orderEventToMaster, txChannels.Ch_ordersFromMaster)
 	go bcast.Receiver(19191, rxChannels.Ch_stateUpdate, rxChannels.Ch_registerOrder, rxChannels.Ch_ordersFromMaster)
 
-	go master.RunMaster(elevator.ID, masterChannels)
-	// go client.RunClient(elevator.ID,clientChannels)
-	go fsm.FsmRun(fsmChannels, elevator)
-	go orderHandler.OrderHandler(orderChannels, elevator.ID)
-	// go lights.SetHallLights(orderChannels.Ch_localLights)
 
-	// go func() {
-	// 	masterChannels.Ch_newPeer <- elevator.ID
+	go master.RunMaster(elevator.ID, Ch_isMaster, Ch_peerLost, txChannels.Ch_ordersFromMaster, rxChannels.Ch_registerOrder, rxChannels.Ch_stateUpdate, Ch_newPeer)
+	go fsm.FsmRun(hardwareChannels.Ch_floorSensor, hardwareChannels.Ch_stopButton, hardwareChannels.Ch_obstruction, Ch_localOrders, Ch_clearedFloor, txChannels.Ch_stateUpdate, elevator)
+	go orderHandler.OrderHandler(elevator.ID, Ch_localOrders, txChannels.Ch_orderEventToMaster, hardwareChannels.Ch_buttonPress, Ch_clearedFloor, rxChannels.Ch_ordersFromMaster)
+	
 
-	// }()
-
-	// timetest := 5 * time.Second
-
-	// for {
-	// 	select {
-	// 	case p := <-rxChannels.Ch_stateUpdate:
-	// 		fmt.Println("Received from network: ", p.ID)
-	// 		fmt.Println("Received from networjk: ", p.Floor)
-	// // 		// case <-time.After(timetest):
-	// // 		// 	masterChannels.Ch_isMaster <- false
-	// // 		// 	fmt.Println("I am not master")
-	// // 		// 	time.Sleep(1 * time.Second)
-	// // 		// 	globalOrderMap := GlobalOrderMap{
-	// // 		// 		"12": OrderMatrix{
-	// // 		// 			{true, false, false}, // Etasje 0: Opp, Ned, Kabin
-	// // 		// 			{false, true, false}, // Etasje 1: Opp, Ned, Kabin
-	// // 		// 			{false, false, true}, // Etasje 2: Opp, Ned, Kabin
-	// // 		// 		},
-	// // 		// 		"elevator2": OrderMatrix{
-	// // 		// 			{false, false, true}, // Etasje 0: Opp, Ned, Kabin
-	// // 		// 			{true, false, false}, // Etasje 1: Opp, Ned, Kabin
-	// // 		// 			{false, true, false}, // Etasje 2: Opp, Ned, Kabin
-	// // 		// 		},
-	// // 		// 	}
-	// // 		// 	netMsg := NetworkMessage{
-	// // 		// 		MsgType: "ordersfrommaster",
-	// // 		// 		MsgData: globalOrderMap,
-	// // 		// 	}
-	// // 		// 	masterChannels.Ch_networkToSlave <- netMsg
-	// // 		// default:
-
-	// 	}
-
-	// }
 	select{}
 }

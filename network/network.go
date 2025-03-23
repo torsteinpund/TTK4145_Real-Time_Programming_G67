@@ -11,22 +11,27 @@ import (
 )
 
 type RXChannels struct {
-	Ch_stateUpdate     		chan Elevator       	`addr:"elevatorupdatechannel"`
-	Ch_registerOrder   		chan OrderEvent     	`addr:"registerorderchannel"`
-	Ch_orderCopyResponse  	chan GlobalOrderMap 	`addr:"ordercopyresponse"`
-	Ch_orderCopyRequest 	chan bool 				`addr:"ordercopyrequest"`
-	Ch_ordersFromMaster 	chan GlobalOrderMap 	`addr:"ordersfrommaster"`
+    Ch_stateUpdate     		chan Elevator       	`addr:"rx_elevatorupdatechannel"`
+    Ch_registerOrder   		chan OrderEvent     	`addr:"rx_registerorderchannel"`
+    Ch_orderCopyResponse  	chan GlobalOrderMap 	`addr:"rx_ordercopyresponse"`
+    Ch_orderCopyRequest 	chan bool 				`addr:"rx_ordercopyrequest"`
+    Ch_ordersFromMaster 	chan GlobalOrderMap 	`addr:"rx_ordersfrommaster"`
 }
 
-func InitNettwork(ch_RX RXChannels, Ch_netWorkMsg <-chan NetworkMessage, detectionPort int, id string, ch_transmitEnable <-chan bool, ch_Client ClientChannels) {
-	// Initialize client
-	// peerUpdateChannel := make(chan peers.PeersUpdate)
+type TXChannels struct {
+    Ch_stateUpdate     		chan Elevator       	`addr:"tx_elevatorupdatechannel"`
+    Ch_orderEventToMaster   		chan OrderEvent     	`addr:"tx_registerorderchannel"`
+    Ch_ordersFromMaster 	chan GlobalOrderMap 	`addr:"tx_ordersfrommaster"`
+}
 
+func InitNettwork(ch_RX RXChannels, detectionPort int, id string, ch_transmitEnable <-chan bool, ch_isMaster chan<- bool, ch_peerLost chan<- string, ch_newPeer chan<- string) {
+
+	ch_peerUpdate := make(chan peers.PeersUpdate)
 	go peers.Transmitter(detectionPort, id, ch_transmitEnable)
-	go peers.Receiver(detectionPort, ch_Client.Ch_peerUpdate)
+	go peers.Receiver(detectionPort, ch_peerUpdate)
 
 	c := NewClient(id) // This should maybe be in the main and passed as an argument instead
-	go c.RunClient(id, ch_RX, ch_Client, Ch_netWorkMsg)
+	go c.RunClient(id, ch_RX, ch_peerUpdate, ch_peerLost, ch_newPeer, ch_isMaster)
 
 }
 

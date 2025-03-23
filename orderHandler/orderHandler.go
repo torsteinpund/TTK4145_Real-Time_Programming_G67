@@ -5,60 +5,65 @@ import (
 	"Driver-go/lights"
 	. "Driver-go/types"
 	"fmt"
-	// "time"
+
 )
 
-type OrderChannels struct {
-	Ch_localOrders       chan OrderMatrix
-	Ch_localLights       chan OrderMatrix
-	Ch_orderFromMaster   chan GlobalOrderMap
-	Ch_networkToMaster   chan NetworkMessage
-	Ch_buttonPress       chan ButtonEvent
-	Ch_clearedFloor      chan int
-	Ch_registerOrder     chan OrderEvent
-	Ch_networkToSlave    chan NetworkMessage
-	Ch_orderCopyResponse chan GlobalOrderMap
-	Ch_orderCopyRequest  chan bool
-}
 
-func OrderHandler(ch OrderChannels, ID string) {
+func OrderHandler(ID string,
+				  Ch_localOrders       chan<- 	OrderMatrix,
+				  Ch_orderEventToMaster   chan<- 	OrderEvent,
+				  Ch_buttonPress       <-chan 	ButtonEvent,
+				  Ch_clearedFloor      <-chan	DirnFloorPair,
+				  Ch_ordersFromMaster    <-chan 	GlobalOrderMap) {
 
 	ordersFromMaster := GlobalOrderMap{}
 	for {
 		select {
-		case buttonEvent := <-ch.Ch_buttonPress:
+		case buttonEvent := <-Ch_buttonPress:
 			button := []ButtonEvent{buttonEvent}
 			fmt.Println("Button pressed: ", button)
 			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
-			newOrderEvent := NetworkMessage{MsgType: "registerorderchannel", MsgData: orderEvent}
-			ch.Ch_networkToMaster <- newOrderEvent
+			Ch_orderEventToMaster <- orderEvent
 			fmt.Println("Order sent to master: ")
 
-		case fromMaster := <-ch.Ch_networkToSlave:
-			ordersFromMaster = fromMaster.MsgData.(GlobalOrderMap)
-			fmt.Println("Orders from master: ", ordersFromMaster)
+		case ordersFromMaster = <-Ch_ordersFromMaster:
+			fmt.Println("Orders from master: ")
 			lights.SetLights(ordersFromMaster, ID)
-			ch.Ch_localOrders <- ordersFromMaster[ID]
-			// fmt.Println("Ordermatrix passed", ordersFromMaster[ID])
+			Ch_localOrders <- ordersFromMaster[ID]
+			fmt.Println("Ordermatrix passed")
 
-		case floor := <-ch.Ch_clearedFloor:
+		case dirnFloor := <-Ch_clearedFloor:
 			orders := []ButtonEvent{}
+			// if dirnFloor.Dirn == MD_Down{
+			// 	hallButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallDown)}
+			// 	cabButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_Cab)}
+			// 	orders = append(orders, hallButton)
+			// 	orders = append(orders, cabButton)
+			// }else if dirnFloor.Dirn == MD_Up{
+			// 	hallButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallUp)}
+			// 	cabButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_Cab)}
+			// 	orders = append(orders, hallButton)
+			// 	orders = append(orders, cabButton)
+			// }else{
+			// 	for btn := 0; btn < NUMBUTTONTYPE; btn++ {
+			// 		button := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(btn)}
+			// 		orders = append(orders, button)
+			// 	}
+			// }
 			for btn := 0; btn < NUMBUTTONTYPE; btn++ {
-				button := ButtonEvent{Floor: floor, Button: ButtonType(btn)}
+				button := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(btn)}
 				orders = append(orders, button)
-
 			}
+		
 			finishedOrder := OrderEvent{ElevatorID: ID, Completed: true, Orders: orders}
-			regFinishedOrder := NetworkMessage{MsgType: "registerorderchannel", MsgData: finishedOrder}
-			fmt.Println("Finished cleared floor: ", regFinishedOrder)
-			ch.Ch_networkToMaster <- regFinishedOrder
+			Ch_orderEventToMaster<- finishedOrder
 
-			// case <-ch.Ch_orderCopyRequest:
+			// case <-Ch_orderCopyRequest:
 			// 	orderCopy := NetworkMessage{
 			// 		MsgType: "ordercopyresponse",
 			// 		MsgData: ordersFromMaster,
 			// 	}
-			// 	ch.Ch_networkToMaster <- orderCopy
+			// 	Ch_networkToMaster <- orderCopy
 
 		}
 	}

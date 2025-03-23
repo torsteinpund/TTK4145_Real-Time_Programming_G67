@@ -3,8 +3,7 @@ package network
 import (
 	// "Driver-go/network/networkMsg"
 	"Driver-go/network/peers"
-	"Driver-go/types"
-	"encoding/json"
+	// "encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
@@ -13,10 +12,10 @@ import (
 )
 
 type ClientChannels struct {
-	Ch_peerUpdate        chan peers.PeersUpdate
-	Ch_peerLost          chan string
-	Ch_newPeer           chan string
-	Ch_isMaster          chan bool
+	Ch_peerUpdate        <-chan peers.PeersUpdate
+	Ch_peerLost          chan<- string
+	Ch_newPeer           chan<- string
+	Ch_isMaster          chan<- bool
 }
 
 
@@ -35,38 +34,37 @@ func NewClient(id string) *Client {
 	}
 }
 
-func (c *Client) RunClient(id string, ch_RX RXChannels, clientChannels ClientChannels, Ch_netWorkMsg <-chan types.NetworkMessage) {
+func (c *Client) RunClient(id string,
+						   ch_RX RXChannels,
+						   Ch_peerUpdate        <-chan peers.PeersUpdate,
+						   Ch_peerLost          chan<- string,
+						   Ch_newPeer           chan<- string,
+						   Ch_isMaster          chan<- bool) {
 	// currentMasterID := id
 	for {
 		select {
-		case update := <-clientChannels.Ch_peerUpdate:
+		case update := <-Ch_peerUpdate:
 
 			peerstatus, peerID := c.updatePeers(update)
 			if peerstatus == "lostPeer" {
-					delete(c.activePeers, peerID)
-					clientChannels.Ch_peerLost <- peerID
-					fmt.Println("Peer lost, we made it passed: ", peerID)
+				delete(c.activePeers, peerID)
+				Ch_peerLost <- peerID
+				fmt.Println("Peer lost, we made it passed: ", peerID)
 				
 			} else if peerstatus == "newPeer" {
 				
 				c.activePeers[peerID] = peers.Peer{ID: peerID}
-				clientChannels.Ch_newPeer <- peerID
+				Ch_newPeer <- peerID
 				fmt.Println("New peer added, we made it passed: ", peerID)
 			}
-			// currentMasterID := updateMaster(c.activePeers, clientChannels.Ch_isMaster, peerID)
-			// if currentMasterID == id {
-			// 	clientChannels.Ch_isMaster <- true
-			// }else{
-			// 	clientChannels.Ch_isMaster <- false
-			// }
-
-		case networkMsg := <-Ch_netWorkMsg:
-			fmt.Println("Received network message")
-			msgData, _ := json.Marshal(networkMsg.MsgData)
-			msgType := networkMsg.MsgType
-			simpleNetworkMessage := SimpleNetworkMsg{MsgType: msgType, MsgData: msgData}
-			go DecodeMessage(ch_RX, simpleNetworkMessage)
+			currentMasterID := updateMaster(c.activePeers, Ch_isMaster, peerID)
+			if currentMasterID == id {
+				Ch_isMaster <- true
+			}else{
+				Ch_isMaster <- false
+			}
 		}
+
 	}
 }
 

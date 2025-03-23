@@ -61,6 +61,11 @@ type DirnBehaviourPair struct {
 	Behaviour ElevatorBehaviour
 }
 
+type DirnFloorPair struct {
+	Dirn 	  MotorDirection
+	Floor 	  int
+}
+
 type ClearRequestCallback func(button ButtonType, floor int)
 
 type OrderMatrix [NUMFLOORS][NUMBUTTONTYPE]bool

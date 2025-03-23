@@ -50,7 +50,7 @@ func ElevatorUninitialized() Elevator {
 			DoorOpenDuration    float64
 			TimeBetweenFloors   float64
 		}{
-			ClearRequestVariant: CV_All,
+			ClearRequestVariant: CV_InDirn,
 			DoorOpenDuration:    3.0,
 			TimeBetweenFloors:   2.0,
 		},
@@ -75,7 +75,7 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator, id string) E
 			DoorOpenDuration    float64
 			TimeBetweenFloors   float64
 		}{
-			ClearRequestVariant: CV_All,
+			ClearRequestVariant: CV_InDirn,
 			DoorOpenDuration:    3.0,
 			TimeBetweenFloors:   2.0,
 		},
