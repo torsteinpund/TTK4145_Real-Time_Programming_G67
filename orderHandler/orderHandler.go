@@ -34,26 +34,26 @@ func OrderHandler(ID string,
 
 		case dirnFloor := <-Ch_clearedFloor:
 			orders := []ButtonEvent{}
-			// if dirnFloor.Dirn == MD_Down{
-			// 	hallButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallDown)}
-			// 	cabButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_Cab)}
-			// 	orders = append(orders, hallButton)
-			// 	orders = append(orders, cabButton)
-			// }else if dirnFloor.Dirn == MD_Up{
-			// 	hallButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallUp)}
-			// 	cabButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_Cab)}
-			// 	orders = append(orders, hallButton)
-			// 	orders = append(orders, cabButton)
-			// }else{
-			// 	for btn := 0; btn < NUMBUTTONTYPE; btn++ {
-			// 		button := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(btn)}
-			// 		orders = append(orders, button)
-			// 	}
-			// }
-			for btn := 0; btn < NUMBUTTONTYPE; btn++ {
-				button := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(btn)}
-				orders = append(orders, button)
+			if dirnFloor.Dirn == MD_Down{
+				hallButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallDown)}
+				cabButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_Cab)}
+				orders = append(orders, hallButton)
+				orders = append(orders, cabButton)
+			}else if dirnFloor.Dirn == MD_Up{
+				hallButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallUp)}
+				cabButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_Cab)}
+				orders = append(orders, hallButton)
+				orders = append(orders, cabButton)
+			}else{
+				for btn := 0; btn < NUMBUTTONTYPE; btn++ {
+					button := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(btn)}
+					orders = append(orders, button)
+				}
 			}
+			// for btn := 0; btn < NUMBUTTONTYPE; btn++ {
+			// 	button := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(btn)}
+			// 	orders = append(orders, button)
+			// }
 		
 			finishedOrder := OrderEvent{ElevatorID: ID, Completed: true, Orders: orders}
 			Ch_orderEventToMaster<- finishedOrder

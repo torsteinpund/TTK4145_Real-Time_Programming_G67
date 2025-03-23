@@ -44,9 +44,8 @@ func main() {
 		IP = fmt.Sprintf(localIP)
 		id = network.GetID(IP)
 	}
-	id = "1"
-
-	elevio.InitHardwareConnection("localhost:15658", hardwareChannels)
+	
+	elevio.InitHardwareConnection("localhost:15657", hardwareChannels)
 	elevator := elevio.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{}, id)
 
 	Ch_peerTxEnable := make(chan bool)

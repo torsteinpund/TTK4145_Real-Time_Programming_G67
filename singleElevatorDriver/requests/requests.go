@@ -40,13 +40,13 @@ func RequestsHere(orderMatrix OrderMatrix, floor int) bool {
 }
 
 
-func RequestsChooseDirection(orderMatrix OrderMatrix, elev Elevator) DirnBehaviourPair {
-	switch elev.Dirn {
+func RequestsChooseDirection(orderMatrix OrderMatrix, elev Elevator, dirn MotorDirection) DirnBehaviourPair {
+	switch dirn {
 	case MD_Up:
 		if RequestsAbove(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Up, Behaviour:EB_Moving}
 		} else if RequestsHere(orderMatrix, elev.Floor) {
-			return DirnBehaviourPair{Dirn:MD_Down, Behaviour:EB_DoorOpen}
+			return DirnBehaviourPair{Dirn:MD_Stop, Behaviour:EB_DoorOpen}
 		} else if RequestsBelow(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Down, Behaviour:EB_Moving}
 		} else {
@@ -56,7 +56,7 @@ func RequestsChooseDirection(orderMatrix OrderMatrix, elev Elevator) DirnBehavio
 		if RequestsBelow(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Down, Behaviour:EB_Moving}
 		} else if RequestsHere(orderMatrix, elev.Floor) {
-			return DirnBehaviourPair{Dirn:MD_Up, Behaviour:EB_DoorOpen}
+			return DirnBehaviourPair{Dirn:MD_Stop, Behaviour:EB_DoorOpen}
 		} else if RequestsAbove(orderMatrix, elev.Floor) {
 			return DirnBehaviourPair{Dirn:MD_Up, Behaviour:EB_Moving}
 		} else {
