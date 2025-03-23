@@ -1,87 +1,78 @@
 package network
 
 import (
-	// "Driver-go/network/networkMsg"
 	"Driver-go/network/peers"
-	// "encoding/json"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
-	//"Driver-go/network/bcast"
 )
 
-type ClientChannels struct {
-	Ch_peerUpdate        <-chan peers.PeersUpdate
-	Ch_peerLost          chan<- string
-	Ch_newPeer           chan<- string
-	Ch_isMaster          chan<- bool
-}
-
-
-
-type Client struct {
+type PeerHandler struct {
 	id          string
 	stopCh      chan struct{}
 	activePeers map[string]peers.Peer
 }
 
-// Creates a client object
-func NewClient(id string) *Client {
-	return &Client{
+func NewPeerHandler(id string) *PeerHandler {
+	return &PeerHandler{
 		id:          id,
 		activePeers: make(map[string]peers.Peer),
 	}
 }
 
-func (c *Client) RunClient(id string,
-						   ch_RX RXChannels,
-						   Ch_peerUpdate        <-chan peers.PeersUpdate,
-						   Ch_peerLost          chan<- string,
-						   Ch_newPeer           chan<- string,
-						   Ch_isMaster          chan<- bool) {
-	// currentMasterID := id
+func (pH *PeerHandler) PeerHandler(id string,
+	ch_RX RXChannels,
+	Ch_peerUpdate <-chan peers.PeersUpdate,
+	Ch_peerLost chan<- string,
+	Ch_newPeer chan<- string,
+	Ch_isMaster chan<- bool) {
 	for {
 		select {
 		case update := <-Ch_peerUpdate:
 
-			peerstatus, peerID := c.updatePeers(update)
+			peerstatus, peerID := pH.updatePeers(update)
 			if peerstatus == "lostPeer" {
-				delete(c.activePeers, peerID)
+				currentMasterID := updateMaster(pH.activePeers, Ch_isMaster, peerID)
+				if currentMasterID == id {
+					Ch_isMaster <- true
+				} else {
+					Ch_isMaster <- false
+				}
+				delete(pH.activePeers, peerID)
 				Ch_peerLost <- peerID
 				fmt.Println("Peer lost, we made it passed: ", peerID)
-				
+
 			} else if peerstatus == "newPeer" {
-				
-				c.activePeers[peerID] = peers.Peer{ID: peerID}
+				currentMasterID := updateMaster(pH.activePeers, Ch_isMaster, peerID)
+				if currentMasterID == id {
+					Ch_isMaster <- true
+				} else {
+					Ch_isMaster <- false
+				}
+				pH.activePeers[peerID] = peers.Peer{ID: peerID}
 				Ch_newPeer <- peerID
 				fmt.Println("New peer added, we made it passed: ", peerID)
 			}
-			currentMasterID := updateMaster(c.activePeers, Ch_isMaster, peerID)
-			if currentMasterID == id {
-				Ch_isMaster <- true
-			}else{
-				Ch_isMaster <- false
-			}
+			
 		}
 
 	}
 }
 
-func (c *Client) updatePeers(update peers.PeersUpdate) (string, string) {
+func (pH *PeerHandler) updatePeers(update peers.PeersUpdate) (string, string) {
 	// Updates activePeers
 	changedAllPeers := ""
 	peerID := ""
 
 	if update.New != "" {
-		c.activePeers[update.New] = peers.Peer{ID: update.New}
-		// fmt.Println("Ny peer lagt til:", update.New)
+		pH.activePeers[update.New] = peers.Peer{ID: update.New}
 		changedAllPeers, peerID = "newPeer", update.New
 	}
 	// Removes lost peers
 	for _, lostID := range update.Lost {
 
-		delete(c.activePeers, lostID)
+		delete(pH.activePeers, lostID)
 		fmt.Println("Fjernet tapt peer:", lostID)
 		changedAllPeers, peerID = "lostPeer", lostID
 	}
@@ -89,12 +80,11 @@ func (c *Client) updatePeers(update peers.PeersUpdate) (string, string) {
 
 }
 
-
 func checkIfMaster(currentMasterID string, lostPeerID string) bool {
 	return currentMasterID == lostPeerID
 }
 
-func updateMaster(activePeers map[string]peers.Peer, Ch_isMaster chan<-bool, ID string) string {
+func updateMaster(activePeers map[string]peers.Peer, Ch_isMaster chan<- bool, ID string) string {
 
 	peers := []int{}
 	for _, peer := range activePeers {
@@ -117,4 +107,3 @@ func updateMaster(activePeers map[string]peers.Peer, Ch_isMaster chan<-bool, ID 
 	currentMasterID := strconv.Itoa(peers[0])
 	return currentMasterID
 }
-

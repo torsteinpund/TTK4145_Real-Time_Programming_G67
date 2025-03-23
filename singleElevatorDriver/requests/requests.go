@@ -125,16 +125,10 @@ func RequestsClearAtCurrentFloor(orderMatrix OrderMatrix, elev Elevator, dirn Mo
 
 		switch dirn {
 		case MD_Up:
-			if !RequestsAbove(orderMatrix, elev.Floor) && !orderMatrix[elev.Floor][BT_Cab]{
-				orderMatrix[elev.Floor][BT_Cab] = false
-			}
-			orderMatrix[elev.Floor][BT_Cab] = false
+			orderMatrix[elev.Floor][BT_HallUp] = false
 
 		case MD_Down:
-			if !RequestsBelow(orderMatrix, elev.Floor) && !orderMatrix[elev.Floor][BT_Cab]{
-				orderMatrix[elev.Floor][BT_Cab] = false
-			}
-			orderMatrix[elev.Floor][BT_Cab] = false
+			orderMatrix[elev.Floor][BT_HallDown] = false
 
 		case MD_Stop:
 			orderMatrix[elev.Floor][BT_HallUp] = false

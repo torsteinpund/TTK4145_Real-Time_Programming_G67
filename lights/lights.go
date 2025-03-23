@@ -8,7 +8,7 @@ import (
 )
 
 
-func SetLights(globalOrderMap GlobalOrderMap,ID string){
+func SetLights(globalOrderMap GlobalOrderMap, ID string){
 	setHallLights(globalOrderMap)
 	setCabLights(globalOrderMap[ID])
 }
@@ -16,12 +16,21 @@ func SetLights(globalOrderMap GlobalOrderMap,ID string){
 
 
 func setHallLights(globalOrderMap GlobalOrderMap) {
+	emptyOrderMatrix := OrderMatrix{}
     for _, orderMatrix := range globalOrderMap {
 		for floor := 0; floor < NUMFLOORS; floor++ {
 			for btn := 0; btn < NUMHALLBUTTONS; btn++ {
-				state := orderMatrix[floor][btn]
-				elevio.SetButtonLamp(ButtonType(btn), floor, state)
+				if orderMatrix[floor][btn] {
+					emptyOrderMatrix[floor][btn] = true
+
+				}
 			}
+		}
+	}
+	for floor := 0; floor < NUMFLOORS; floor++ {
+		for btn := 0; btn < NUMHALLBUTTONS; btn++ {
+			state := emptyOrderMatrix[floor][btn]
+			elevio.SetButtonLamp(ButtonType(btn), floor, state)
 		}
 	}
 }

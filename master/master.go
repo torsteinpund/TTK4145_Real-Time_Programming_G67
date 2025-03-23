@@ -12,16 +12,6 @@ import (
 	"time"
 )
 
-type MasterChannels struct {
-	Ch_isMaster       <-chan bool
-	Ch_peerLost       <-chan string
-	Ch_networkToSlave chan<- NetworkMessage
-	Ch_registerOrder  <-chan OrderEvent
-	Ch_stateUpdate    <-chan Elevator
-	Ch_orderCopy      <-chan GlobalOrderMap
-	Ch_newPeer        <-chan string
-}
-
 // StateSingleElevator represents the state of a single elevator
 type StateSingleElevator struct {
 	ElevatorBehaviour string `json:"behaviour"`
@@ -49,14 +39,14 @@ type AllElevators struct {
 	States map[string]StateSingleElevator `json:"states"`
 }
 
-func RunMaster(ID string, 	
-			   Ch_isMaster       <-chan bool,
-			   Ch_peerLost       <-chan string,
-			   Ch_ordersFromMaster chan<- GlobalOrderMap,
-			   Ch_registerOrder  <-chan OrderEvent,
-			   Ch_stateUpdate    <-chan Elevator,
-			//    Ch_orderCopy      <-chan GlobalOrderMap,
-			   Ch_newPeer        <-chan string) {
+func Master(ID string,
+	Ch_isMaster <-chan bool,
+	Ch_peerLost <-chan string,
+	Ch_ordersFromMaster chan<- GlobalOrderMap,
+	Ch_registerOrder <-chan OrderEvent,
+	Ch_stateUpdate <-chan Elevator,
+	//    Ch_orderCopy       <-chan GlobalOrderMap,
+	Ch_newPeer <-chan string) {
 	fmt.Println("Running master...")
 
 	allElevatorStates := map[string]StateSingleElevator{}
@@ -145,25 +135,22 @@ func RunMaster(ID string,
 							fmt.Println("Master waking up")
 							break findNewMaster
 						}
-					case newPeer := <-Ch_newPeer:
-						// Leser nye peers, men gjør ingenting (kun logg om ønskelig)
-						fmt.Println("Dormant: mottok ny peer, ignorerer:", newPeer)
-					case lostPeer := <-Ch_peerLost:
-						// Leser tapte peers og ignorerer
-						fmt.Println("Dormant: mottok tapt peer, ignorerer:", lostPeer)
-					case newOrderEvent := <-Ch_registerOrder:
-						// Leser ordrehendelser uten å prosessere dem
-						fmt.Println("Dormant: mottok ny ordrehendelse, ignorerer", newOrderEvent)
-					case state := <-Ch_stateUpdate:
-						// Leser statusoppdateringer og ignorerer dem
-						fmt.Println("Dormant: mottok state update, ignorerer", state)
+
+					case <-Ch_newPeer:
+
+					// case <-Ch_peerLost:
+						
+
+					case <-Ch_registerOrder:
+
+					case <-Ch_stateUpdate:
+
 					// case orderCopyResp := <-Ch_orderCopy:
-					// 	// Oppdaterer orderCopy-variabelen
 					// 	fmt.Println("Dormant: mottok orderCopy, oppdaterer", orderCopyResp)
+
 					default:
-						// Forhindrer spinning
 						time.Sleep(10 * time.Millisecond)
-					
+
 					}
 				}
 			}
@@ -184,12 +171,12 @@ func RunMaster(ID string,
 				state.Available,
 				cabOrders}
 
-			// fmt.Println("NewAllElevator",allElevatorStates[state.ID])
+
 			if reassign {
 				updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 				Ch_ordersFromMaster <- updatedOrders
 			}
-			fmt.Println("AllElevatorStates: ", allElevatorStates)
+			// fmt.Println("AllElevatorStates: ", allElevatorStates)
 
 		// case orderCopy := <-Ch_orderCopy:
 		// 	fmt.Println("Master has received an order copy response")
@@ -246,7 +233,7 @@ func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorState
 			availableElevatorsMap[elevatorID] = elevatorState
 		}
 	}
-	// fmt.Println(unavailableElevators, availableElevatorsMap)
+
 	//Calculates which available elevators should take the hallorders of the lost peer
 	allElevators := AllElevators{GlobalOrders: hallOrders, States: availableElevatorsMap}
 	globOrderMap := hallAssignerExec(allElevators)
@@ -260,7 +247,7 @@ func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorState
 		}
 		globOrderMap[elevatorID] = orders
 	}
-	
+
 	return globOrderMap
 }
 
@@ -286,11 +273,6 @@ func hallAssignerExec(input AllElevators) GlobalOrderMap {
 		fmt.Println("json.Unmarshal error: ", err)
 		return nil
 	}
-
-	// fmt.Printf("output: \n")
-	// for k, v := range *output {
-	//     fmt.Printf("%6v :  %+v\n", k, v)
-	// }
 
 	return output
 

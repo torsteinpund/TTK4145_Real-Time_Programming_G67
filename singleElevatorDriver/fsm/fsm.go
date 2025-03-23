@@ -8,14 +8,13 @@ import (
 	"time"
 )
 
-
-func FsmRun(Ch_floorSensor     <-chan 	int,
-			Ch_stopButton      <-chan 	bool,
-			Ch_obstruction     <-chan 	bool,
-			Ch_localOrders     <-chan 	OrderMatrix,
-			Ch_clearedFloor    chan<- 	DirnFloorPair,
-			Ch_stateUpdate     chan<- Elevator,
-			elev Elevator){
+func Fsm(Ch_floorSensor <-chan int,
+	Ch_stopButton <-chan bool,
+	Ch_obstruction <-chan bool,
+	Ch_localOrders <-chan OrderMatrix,
+	Ch_clearedFloor chan<- DirnFloorPair,
+	Ch_stateUpdate chan<- Elevator,
+	elev Elevator) {
 
 	fmt.Println("FSM Started!")
 	orderMatrix := OrderMatrix{}
@@ -23,10 +22,10 @@ func FsmRun(Ch_floorSensor     <-chan 	int,
 	doorOpenCh := make(chan bool, 200)
 	doorClose := time.NewTimer(3 * time.Second)
 	doorClose.Stop()
-	// errorTimeout := time.NewTimer(5 * time.Second)
+	errorTimeout := time.NewTimer(5 * time.Second)
+	periodicStateUpdate := time.NewTicker(1 * time.Second)
 	elevio.SetDoorOpenLamp(false)
 	lastDirn := elev.Dirn
-
 
 
 	for {
@@ -48,6 +47,7 @@ func FsmRun(Ch_floorSensor     <-chan 	int,
 					doorOpenCh <- true
 					break
 				}
+				errorTimeout.Reset(5 * time.Second)
 			}
 
 		case currentFloor := <-Ch_floorSensor:
@@ -66,15 +66,16 @@ func FsmRun(Ch_floorSensor     <-chan 	int,
 				if emptyOrderMatrix(orderMatrix) {
 					elev.Behaviour = EB_Idle
 					elevio.SetMotorDirection(MD_Stop)
+					errorTimeout.Stop()
 					break
 				}
-
+				errorTimeout.Reset(5 * time.Second)
 			case EB_DoorOpen:
 				elevio.SetMotorDirection(MD_Stop)
-
+				errorTimeout.Stop()
 			case EB_Idle:
 				elevio.SetMotorDirection(MD_Stop)
-
+				errorTimeout.Stop()
 			}
 			elev.Available = true
 			Ch_stateUpdate <- elev
@@ -85,6 +86,7 @@ func FsmRun(Ch_floorSensor     <-chan 	int,
 			elevio.SetMotorDirection(MD_Stop)
 			elevio.SetDoorOpenLamp(true)
 			doorClose.Reset(3 * time.Second)
+			errorTimeout.Stop()
 			orderMatrix = requests.RequestsClearAtCurrentFloor(orderMatrix, elev, lastDirn)
 			Ch_clearedFloor <- DirnFloorPair{Dirn: lastDirn, Floor: elev.Floor}
 
@@ -99,6 +101,7 @@ func FsmRun(Ch_floorSensor     <-chan 	int,
 			if emptyOrderMatrix(orderMatrix) {
 				elev.Behaviour = EB_Idle
 				lastDirn = elev.Dirn
+				errorTimeout.Stop()
 				break
 			} else {
 				dirnBehaviour := requests.RequestsChooseDirection(orderMatrix, elev, lastDirn)
@@ -106,6 +109,7 @@ func FsmRun(Ch_floorSensor     <-chan 	int,
 				lastDirn = elev.Dirn
 				elev.Behaviour = ElevatorBehaviour(dirnBehaviour.Behaviour)
 				elevio.SetMotorDirection(elev.Dirn)
+				errorTimeout.Reset(5 * time.Second)
 			}
 
 		case stopPressed := <-Ch_stopButton:
@@ -118,6 +122,7 @@ func FsmRun(Ch_floorSensor     <-chan 	int,
 			} else {
 				fmt.Println("Stop button released!")
 				elevio.SetStopLamp(false)
+				elevio.SetMotorDirection(lastDirn)
 			}
 
 		case obstruction := <-Ch_obstruction:
@@ -131,6 +136,16 @@ func FsmRun(Ch_floorSensor     <-chan 	int,
 				elev.Available = true
 				fmt.Println("obstruction switch off")
 			}
+
+		case <-periodicStateUpdate.C:
+			periodicStateUpdate.Stop()
+			Ch_stateUpdate <- elev
+			periodicStateUpdate.Reset(1 * time.Second)
+
+
+		case <-errorTimeout.C:
+			fmt.Println("Error timeout!Elevator behav: ", elev.Behaviour, "elevID: ", elev.ID)
+
 
 		default:
 			if (elev.Behaviour == EB_Idle || elev.Behaviour == EB_Moving) && elev.Available {
@@ -161,14 +176,13 @@ func FsmRun(Ch_floorSensor     <-chan 	int,
 
 }
 
-
 func emptyOrderMatrix(orderMatrix [NUMFLOORS][NUMBUTTONTYPE]bool) bool {
 	for _, row := range orderMatrix {
 		for _, value := range row {
 			if value {
-				return false // Found a `true`, so not all are `false`
+				return false
 			}
 		}
 	}
-	return true // All values are `false`
+	return true
 }
