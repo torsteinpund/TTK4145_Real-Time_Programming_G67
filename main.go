@@ -46,7 +46,7 @@ func main() {
 	Ch_peerLost     := make(chan string)
 	Ch_newPeer      := make(chan string)
 	Ch_localOrders  := make(chan OrderMatrix)
-	Ch_clearedFloor := make(chan DirnFloorPair)
+	Ch_clearedFloor := make(chan DirnFloorPair,10)
 	Ch_peerUpdate   := make(chan peers.PeersUpdate)
 	// Ch_orderCopyResponse := make(chan GlobalOrderMap)
 

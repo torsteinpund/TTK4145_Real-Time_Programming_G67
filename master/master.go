@@ -51,6 +51,7 @@ func Master(ID string,
 
 	allElevatorStates := map[string]StateSingleElevator{}
 	hallOrders := [NUMFLOORS][NUMHALLBUTTONS]bool{}
+	lastGlobaleOrderMap := GlobalOrderMap{}
 
 	// orderCopyRequest := NetworkMessage{
 	// 	MsgType: "ordercopyrequest",
@@ -76,7 +77,7 @@ func Master(ID string,
 			}
 
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-
+			lastGlobaleOrderMap = updatedOrders
 			Ch_ordersFromMaster <- updatedOrders
 
 		case newPeer := <-Ch_newPeer:
@@ -92,6 +93,7 @@ func Master(ID string,
 			}
 
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+			lastGlobaleOrderMap = updatedOrders
 			fmt.Println("Master has reassigned the new peer")
 			Ch_ordersFromMaster <- updatedOrders
 			fmt.Println("Master has sent the updated orders to the slave")
@@ -117,6 +119,7 @@ func Master(ID string,
 				}
 			}
 			updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
+			lastGlobaleOrderMap = updatedGlobalOrders
 			Ch_ordersFromMaster <- updatedGlobalOrders
 
 		case masterCheck := <-Ch_isMaster:
@@ -155,13 +158,13 @@ func Master(ID string,
 				}
 			}
 		case state := <-Ch_stateUpdate:
-			reassign := false
+			// reassign := false
 			elevator, exist := allElevatorStates[state.ID]
 			cabOrders := [NUMFLOORS]bool{}
 
 			if exist {
 				cabOrders = elevator.CabOrders
-				reassign = elevator.Available != state.Available //If the elevator is not available, we should reassign the order.
+				// reassign = elevator.Available != state.Available //If the elevator is not available, we should reassign the order.
 			}
 
 			allElevatorStates[state.ID] = StateSingleElevator{
@@ -171,10 +174,12 @@ func Master(ID string,
 				state.Available,
 				cabOrders}
 
+			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 
-			if reassign {
-				updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+			if checkIfUpdatedGlobalOrderMap(updatedOrders, lastGlobaleOrderMap) {
+				lastGlobaleOrderMap = updatedOrders
 				Ch_ordersFromMaster <- updatedOrders
+				
 			}
 			// fmt.Println("AllElevatorStates: ", allElevatorStates)
 
@@ -219,9 +224,9 @@ func Master(ID string,
 }
 
 func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorStates map[string]StateSingleElevator) GlobalOrderMap {
-	fmt.Println("Reassigning orders")
-	fmt.Println("HallOrders: ", hallOrders)
-	fmt.Println("AllElevatorStates: ", allElevatorStates)
+	// fmt.Println("Reassigning orders")
+	// fmt.Println("HallOrders: ", hallOrders)
+	// fmt.Println("AllElevatorStates: ", allElevatorStates)
 	unavailableElevators := []string{}
 	availableElevatorsMap := map[string]StateSingleElevator{}
 
@@ -276,6 +281,19 @@ func hallAssignerExec(input AllElevators) GlobalOrderMap {
 
 	return output
 
+}
+
+func checkIfUpdatedGlobalOrderMap(updatedOrders GlobalOrderMap, lastGlobaleOrderMap GlobalOrderMap) bool {
+	for elevatorID, orders := range updatedOrders {
+		for floor, row := range orders {
+			for button, isOrder := range row {
+				if isOrder != lastGlobaleOrderMap[elevatorID][floor][button] {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func getElevatorIDs(states map[string]StateSingleElevator) []string {

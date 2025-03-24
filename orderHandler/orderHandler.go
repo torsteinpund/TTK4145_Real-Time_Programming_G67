@@ -3,7 +3,7 @@ package orderHandler
 import (
 	"Driver-go/lights"
 	. "Driver-go/types"
-	"fmt"
+	// "fmt"
 )
 
 func OrderHandler(ID string,
@@ -18,31 +18,40 @@ func OrderHandler(ID string,
 		select {
 		case buttonEvent := <-Ch_buttonPress:
 			button := []ButtonEvent{buttonEvent}
-			fmt.Println("Button pressed: ", button)
+			// fmt.Println("Button pressed: ", button)
 			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
 			Ch_orderEventToMaster <- orderEvent
-			fmt.Println("Order sent to master: ")
+			// fmt.Println("Order sent to master: ")
 
 		case ordersFromMaster = <-Ch_ordersFromMaster:
-			fmt.Println("Orders from master: ", ordersFromMaster)
+			// fmt.Println("Orders from master: ", ordersFromMaster)
 			lights.SetLights(ordersFromMaster, ID)
 			Ch_localOrders <- ordersFromMaster[ID]
 			// fmt.Println("Ordermatrix passed")
 
 
 		case dirnFloor := <-Ch_clearedFloor:
-			lights.SetLights(ordersFromMaster, ID)
+
+			
 			orders := []ButtonEvent{}
 			if dirnFloor.Dirn == MD_Down {
 				hallButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallDown)}
 				cabButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_Cab)}
 				orders = append(orders, hallButton)
 				orders = append(orders, cabButton)
+				hallButton1 := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallUp)}
+				if(dirnFloor.Floor == 0){
+					orders = append(orders, hallButton1)
+				}
 			} else if dirnFloor.Dirn == MD_Up {
 				hallButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallUp)}
 				cabButton := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_Cab)}
 				orders = append(orders, hallButton)
 				orders = append(orders, cabButton)
+				hallButton1 := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallDown)}
+				if(dirnFloor.Floor == (NUMFLOORS-1)){
+					orders = append(orders, hallButton1)
+				}
 			} else {
 				for btn := 0; btn < NUMBUTTONTYPE; btn++ {
 					button := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(btn)}

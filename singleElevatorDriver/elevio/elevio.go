@@ -83,7 +83,7 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator, id string) E
 
 	if initialFloor := GetFloor(); initialFloor == -1 {
 		fmt.Println("Elevator is between floors on startup. Running initialization...")
-		elev.Behaviour, elev.Dirn = initBetweenFloors()
+		elev.Behaviour, elev.Dirn = InitBetweenFloors()
 	}
 	elev.Floor = GetFloor()
 
@@ -91,7 +91,7 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator, id string) E
 	return elev
 }
 
-func initBetweenFloors() (ElevatorBehaviour, MotorDirection) {
+func InitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
 	// Move the elevator down until it reaches a floor
 	for {
 		SetMotorDirection(MD_Down)

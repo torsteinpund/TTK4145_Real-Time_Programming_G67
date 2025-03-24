@@ -23,7 +23,7 @@ func Fsm(Ch_floorSensor <-chan int,
 	doorClose := time.NewTimer(3 * time.Second)
 	doorClose.Stop()
 	errorTimeout := time.NewTimer(5 * time.Second)
-	periodicStateUpdate := time.NewTicker(1 * time.Second)
+	periodicStateUpdate := time.NewTicker(100 * time.Millisecond)
 	elevio.SetDoorOpenLamp(false)
 	lastDirn := elev.Dirn
 
@@ -32,6 +32,8 @@ func Fsm(Ch_floorSensor <-chan int,
 		select {
 		case receivedOrder := <-Ch_localOrders:
 			orderMatrix = receivedOrder
+			fmt.Println("Ordermatrix received: ", orderMatrix)
+			fmt.Println()
 			switch elev.Behaviour {
 			case EB_Idle:
 				if requests.RequestsHere(orderMatrix, elev.Floor) {
@@ -87,8 +89,11 @@ func Fsm(Ch_floorSensor <-chan int,
 			elevio.SetDoorOpenLamp(true)
 			doorClose.Reset(3 * time.Second)
 			errorTimeout.Stop()
-			orderMatrix = requests.RequestsClearAtCurrentFloor(orderMatrix, elev, lastDirn)
+			fmt.Println("Before clearing: ", orderMatrix)
+			orderMatrix, lastDirn = requests.RequestsClearAtCurrentFloor(orderMatrix, elev, lastDirn)
+			fmt.Println("After clearing: ", orderMatrix)
 			Ch_clearedFloor <- DirnFloorPair{Dirn: lastDirn, Floor: elev.Floor}
+			fmt.Println("Sent cleared floor")
 
 		case <-doorClose.C:
 			if obstructionActive {
@@ -140,11 +145,17 @@ func Fsm(Ch_floorSensor <-chan int,
 		case <-periodicStateUpdate.C:
 			periodicStateUpdate.Stop()
 			Ch_stateUpdate <- elev
-			periodicStateUpdate.Reset(1 * time.Second)
+			periodicStateUpdate.Reset(100 * time.Millisecond)
 
 
 		case <-errorTimeout.C:
 			fmt.Println("Error timeout!Elevator behav: ", elev.Behaviour, "elevID: ", elev.ID)
+			elev.Available = false
+			Ch_stateUpdate <- elev
+			elev.Behaviour, elev.Dirn = elevio.InitBetweenFloors()
+			elev.Available = true
+			Ch_stateUpdate <- elev
+
 
 
 		default:
@@ -154,6 +165,10 @@ func Fsm(Ch_floorSensor <-chan int,
 					switch newDirPair.Dirn {
 					case MD_Stop:
 						elev.Behaviour = EB_Idle
+						if elevio.GetFloor() == -1 {
+							break
+						}
+						fmt.Println("Stop at floor: ", elev.Floor)
 						elevio.SetMotorDirection(MD_Stop)
 
 					case MD_Up:
