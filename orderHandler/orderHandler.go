@@ -4,8 +4,7 @@ import (
 	"Driver-go/lights"
 	. "Driver-go/types"
 	"fmt"
-	"encoding/json"
-    "os"
+	"Driver-go/backup"
 )
 
 func OrderHandler(ID string,
@@ -64,51 +63,16 @@ func OrderHandler(ID string,
 
 
 			case <-Ch_orderCopyRequest:
-				fmt.Println("Sending ordercipies to master", ordersFromMaster)
+				fmt.Println("OrderHandler: Mottok kopi-forespørsel. Skriver backup av cab-ordrene...")
+				if err := backup.WriteCabOrdersToFile(ordersFromMaster, "caborders_backup.json"); err != nil {
+					fmt.Println("Feil ved skriving av backup:", err)
+				} else {
+					fmt.Println("Backup skrevet til caborders_backup.json")
+				}
+				fmt.Println("Sender order copy response til master:", ordersFromMaster)
 				Ch_orderCopyResponse <- ordersFromMaster
-
 		}
 	}
 }
 
 
-func writeCabOrdersToFile(orders GlobalOrderMap) error {
-    // Vi lager en midlertidig mappe som kun lagrer cab-orders (slice med bool for hvert nivå)
-    backup := make(map[string][]bool)
-    for id, orderMatrix := range orders {
-        cabOrders := make([]bool, NUMFLOORS)
-        for floor := 0; floor < NUMFLOORS; floor++ {
-            cabOrders[floor] = orderMatrix[floor][BT_Cab]
-        }
-        backup[id] = cabOrders
-    }
-    data, err := json.MarshalIndent(backup, "", "  ")
-    if err != nil {
-        return err
-    }
-    return os.WriteFile("caborders.txt", data, 0644)
-}
-
-
-func ReadCabOrdersFromFile() (GlobalOrderMap, error) {
-    data, err := os.ReadFile("caborders.txt")
-    if err != nil {
-        return nil, err
-    }
-    // Midlertidig map: ID -> []bool (cab orders)
-    var backup map[string][]bool
-    err = json.Unmarshal(data, &backup)
-    if err != nil {
-        return nil, err
-    }
-    // Konverter til GlobalOrderMap (hvor vi lager et OrderMatrix med bare cab-knappen aktivert)
-    globalOrders := make(GlobalOrderMap)
-    for id, cabOrders := range backup {
-        var orderMatrix OrderMatrix // alle verdier er false som standard
-        for floor := 0; floor < NUMFLOORS && floor < len(cabOrders); floor++ {
-            orderMatrix[floor][BT_Cab] = cabOrders[floor]
-        }
-        globalOrders[id] = orderMatrix
-    }
-    return globalOrders, nil
-}

@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"Driver-go/orderHandler"
 	//"Driver-go/cost"
 	// "math"
 	// "strings"
 	"time"
+	"Driver-go/backup"
 )
 
 // StateSingleElevator represents the state of a single elevator
@@ -47,7 +47,7 @@ func Master(ID string,
 	Ch_stateUpdate <-chan Elevator,
 	Ch_orderCopyResponse <-chan GlobalOrderMap,
 	Ch_orderCopyRequest chan<- bool,
-	Ch_newPeer <-chan string) {
+	Ch_newPeer <-chan string,) {
 	fmt.Println("Running master...")
 
 	allElevatorStates := map[string]StateSingleElevator{}
@@ -124,7 +124,7 @@ func Master(ID string,
 
 			} else {
 				fmt.Println("Mayday, Mayday. Getting sucked into the matrix: " + ID + " is getting ready to work for free")
-				backupOrders, err := orderHandler.ReadCabOrdersFromFile()
+				backupOrders, err := backup.ReadCabOrdersFromFile("caborders_backup.json")
 
 				if err != nil {
 					fmt.Println("Error reading cab orders from file:", err)
