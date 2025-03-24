@@ -48,7 +48,8 @@ func main() {
 	Ch_localOrders  := make(chan OrderMatrix)
 	Ch_clearedFloor := make(chan DirnFloorPair,10)
 	Ch_peerUpdate   := make(chan peers.PeersUpdate)
-	// Ch_orderCopyResponse := make(chan GlobalOrderMap)
+	Ch_orderCopyResponse := make(chan GlobalOrderMap)
+	Ch_orderCopyRequest := make(chan bool)
 
 	hardwareChannels := elevio.HardwareChannels{
 		Ch_buttonPress: 	make(chan ButtonEvent),
@@ -101,6 +102,8 @@ func main() {
 					 txChannels.Ch_ordersFromMaster, 
 					 rxChannels.Ch_registerOrder, 
 					 rxChannels.Ch_stateUpdate, 
+					 Ch_orderCopyResponse,
+					 Ch_orderCopyRequest,
 					 Ch_newPeer)
 
 	go fsm.Fsm(hardwareChannels.Ch_floorSensor, 
@@ -114,9 +117,11 @@ func main() {
 	go orderHandler.OrderHandler(elevator.ID,
 								 Ch_localOrders, 
 								 txChannels.Ch_orderEventToMaster, 
+								 Ch_orderCopyResponse,
 								 hardwareChannels.Ch_buttonPress, 
 								 Ch_clearedFloor, 
-								 rxChannels.Ch_ordersFromMaster)
+								 rxChannels.Ch_ordersFromMaster,
+								 Ch_orderCopyRequest)
 
 	select {}
 }

@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	// "time"
 )
 
 type PeerHandler struct {
@@ -27,6 +28,7 @@ func (pH *PeerHandler) PeerHandler(id string,
 	Ch_peerLost chan<- string,
 	Ch_newPeer chan<- string,
 	Ch_isMaster chan<- bool) {
+
 	for {
 		select {
 		case update := <-Ch_peerUpdate:
@@ -54,10 +56,43 @@ func (pH *PeerHandler) PeerHandler(id string,
 				Ch_newPeer <- peerID
 				fmt.Println("New peer added, we made it passed: ", peerID)
 			}
-			
-		}
+				
 
+			// peerstatus, peerID := pH.updatePeers(update)
+			// if peerstatus == "lostPeer" && peerID == currentMasterID {
+			// 	currentMasterID = updateMaster(pH.activePeers, Ch_isMaster, peerID)
+			// 	if currentMasterID == id {
+			// 		Ch_isMaster <- true
+			// 	} else {
+			// 		Ch_isMaster <- false
+			// 	}
+			// 	delete(pH.activePeers, peerID)
+			// 	Ch_peerLost <- peerID
+			// 	fmt.Println("Peer lost, we made it passed: ", peerID)
+
+			// } else if peerstatus == "newPeer" && len(pH.activePeers) == 0 {
+			// 	currentMasterID = updateMaster(pH.activePeers, Ch_isMaster, peerID)
+			// 	if currentMasterID == id {
+			// 		Ch_isMaster <- true
+			// 	}
+			// 	pH.activePeers[peerID] = peers.Peer{ID: peerID}
+			// 	Ch_newPeer <- peerID
+			// 	fmt.Println("New peer added, we made it passed: ", peerID)
+			// } else if peerstatus == "lostPeer"{
+			// 	delete(pH.activePeers, peerID)
+			// 	Ch_peerLost <- peerID
+			// 	fmt.Println("Peer lost, we made it passed: ", peerID)
+
+			// } else if peerstatus == "newPeer"{
+			// 	currentMasterID = updateMaster(pH.activePeers, Ch_isMaster, peerID)
+			// 	Ch_isMaster <- false
+			// 	pH.activePeers[peerID] = peers.Peer{ID: peerID}
+			// 	Ch_newPeer <- peerID
+			// 	fmt.Println("New peer added, we made it passed: ", peerID)
+			//  }
+		}
 	}
+
 }
 
 func (pH *PeerHandler) updatePeers(update peers.PeersUpdate) (string, string) {

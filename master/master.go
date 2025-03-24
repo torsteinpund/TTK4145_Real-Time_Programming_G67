@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-
+	"Driver-go/orderHandler"
 	//"Driver-go/cost"
 	// "math"
 	// "strings"
@@ -45,20 +45,14 @@ func Master(ID string,
 	Ch_ordersFromMaster chan<- GlobalOrderMap,
 	Ch_registerOrder <-chan OrderEvent,
 	Ch_stateUpdate <-chan Elevator,
-	//    Ch_orderCopy       <-chan GlobalOrderMap,
+	Ch_orderCopyResponse <-chan GlobalOrderMap,
+	Ch_orderCopyRequest chan<- bool,
 	Ch_newPeer <-chan string) {
 	fmt.Println("Running master...")
 
 	allElevatorStates := map[string]StateSingleElevator{}
 	hallOrders := [NUMFLOORS][NUMHALLBUTTONS]bool{}
 	lastGlobaleOrderMap := GlobalOrderMap{}
-
-	// orderCopyRequest := NetworkMessage{
-	// 	MsgType: "ordercopyrequest",
-	// 	MsgData: true,
-	// }
-
-	// updatedOrders := make(GlobalOrderMap)
 
 	for {
 		select {
@@ -75,8 +69,9 @@ func Master(ID string,
 				elevator.Available = false
 				allElevatorStates[lostPeer] = elevator
 			}
-
+			
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+			fmt.Println("Updated orders after peer loss: ", updatedOrders)
 			lastGlobaleOrderMap = updatedOrders
 			Ch_ordersFromMaster <- updatedOrders
 
@@ -125,31 +120,53 @@ func Master(ID string,
 		case masterCheck := <-Ch_isMaster:
 			fmt.Println("Master has received a check if master")
 			if masterCheck {
-				// Ch_networkToSlave <- orderCopyRequest //If the master is still running, the ordercopy is passed through the ToslavesChannel.
+				Ch_orderCopyRequest <- true //If the master is still running, the ordercopy is passed through the ToslavesChannel.
+
 			} else {
-				fmt.Println("Mayday, Mayday. The master elevator: " + ID + " is shutting down")
-			findNewMaster:
+				fmt.Println("Mayday, Mayday. Getting sucked into the matrix: " + ID + " is getting ready to work for free")
+				backupOrders, err := orderHandler.ReadCabOrdersFromFile()
+
+				if err != nil {
+					fmt.Println("Error reading cab orders from file:", err)
+				} else {
+					updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
+					for id, backupMatrix := range backupOrders {
+						// Hent ut den eksisterende OrderMatrix fra mappet, eller opprett en ny om den ikke finnes
+						matrix, exists := updatedGlobalOrders[id]
+						if !exists {
+							matrix = OrderMatrix{}
+						}
+						for floor := 0; floor < NUMFLOORS; floor++ {
+							// Oppdater den lokale kopien
+							matrix[floor][BT_Cab] = matrix[floor][BT_Cab] || backupMatrix[floor][BT_Cab]
+						}
+						// Skriv den endrede kopien tilbake til mappet
+						updatedGlobalOrders[id] = matrix
+					}
+					Ch_ordersFromMaster <- updatedGlobalOrders
+				}
+				stuckInTheMatrix:
 				for {
 					select {
 					case masterCheck := <-Ch_isMaster:
 						if masterCheck {
-							// Ch_networkToSlave <- orderCopyRequest
+							Ch_orderCopyRequest <- true
 							time.Sleep(500 * time.Millisecond)
 							fmt.Println("Master waking up")
-							break findNewMaster
+							break stuckInTheMatrix
 						}
 
 					case <-Ch_newPeer:
 
-					// case <-Ch_peerLost:
+					case <-Ch_peerLost:
 						
 
 					case <-Ch_registerOrder:
 
 					case <-Ch_stateUpdate:
 
-					// case orderCopyResp := <-Ch_orderCopy:
-					// 	fmt.Println("Dormant: mottok orderCopy, oppdaterer", orderCopyResp)
+					// case orderCopyResp := <-Ch_orderCopyResponse:
+					// 	copyGlobalOrderMap = orderCopyResp
 
 					default:
 						time.Sleep(10 * time.Millisecond)
@@ -183,38 +200,38 @@ func Master(ID string,
 			}
 			// fmt.Println("AllElevatorStates: ", allElevatorStates)
 
-		// case orderCopy := <-Ch_orderCopy:
-		// 	fmt.Println("Master has received an order copy response")
-		// 	for elevatorID, orderMatrix := range orderCopy { //Loops through every elevator
-		// 		for floor, row := range orderMatrix {
-		// 			for button, isOrder := range row {
-		// 				switch ButtonType(button) {
-		// 				case BT_HallUp, BT_HallDown:
-		// 					hallOrders[floor][button] = hallOrders[floor][button] || isOrder
-		// 				case BT_Cab:
-		// 					elevator, exist := allElevatorStates[elevatorID]
-		// 					if !exist {
-		// 						cabOrders := [NUMFLOORS]bool{}
-		// 						cabOrders[floor] = isOrder
-		// 						allElevatorStates[elevatorID] = StateSingleElevator{
-		// 							"idle",
-		// 							0,
-		// 							"down",
-		// 							true,
-		// 							cabOrders}
+		case orderCopy := <-Ch_orderCopyResponse:
+			fmt.Println("Master has received an order copy response", orderCopy)
+			for elevatorID, orderMatrix := range orderCopy { //Loops through every elevator
+				for floor, row := range orderMatrix {
+					for button, isOrder := range row {
+						switch ButtonType(button) {
+						case BT_HallUp, BT_HallDown:
+							hallOrders[floor][button] = hallOrders[floor][button] || isOrder
+						case BT_Cab:
+							elevator, exist := allElevatorStates[elevatorID]
+							if !exist {
+								cabOrders := [NUMFLOORS]bool{}
+								cabOrders[floor] = isOrder
+								allElevatorStates[elevatorID] = StateSingleElevator{
+									"idle",
+									0,
+									"down",
+									true,
+									cabOrders}
 
-		// 					} else {
-		// 						elevator.CabOrders[floor] = elevator.CabOrders[floor] || isOrder
-		// 						allElevatorStates[elevatorID] = elevator
-		// 					}
-		// 				}
-		// 			}
-		// 		}
-		// 	}
+							} else {
+								elevator.CabOrders[floor] = elevator.CabOrders[floor] || isOrder
+								allElevatorStates[elevatorID] = elevator
+							}
+						}
+					}
+				}
+			}
 
-		// 	tempMessage := reAssignOrders(hallOrders, allElevatorStates)
-		// 	copyUpdatedOrders := NetworkMessage{MsgType: "ordercopyresponse", MsgData: tempMessage.MsgData}
-		// 	Ch_networkToSlave <- copyUpdatedOrders
+			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+			fmt.Println("Master has reassigned the orders after receiving an order copy response", updatedOrders)
+			Ch_ordersFromMaster <- updatedOrders
 
 		default:
 			// fmt.Println("Master is waiting for a message")

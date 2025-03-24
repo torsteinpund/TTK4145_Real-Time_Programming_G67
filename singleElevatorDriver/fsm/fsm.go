@@ -32,7 +32,7 @@ func Fsm(Ch_floorSensor <-chan int,
 		select {
 		case receivedOrder := <-Ch_localOrders:
 			orderMatrix = receivedOrder
-			fmt.Println("Ordermatrix received: ", orderMatrix)
+			// fmt.Println("Ordermatrix received: ", orderMatrix)
 			fmt.Println()
 			switch elev.Behaviour {
 			case EB_Idle:
@@ -166,6 +166,11 @@ func Fsm(Ch_floorSensor <-chan int,
 					case MD_Stop:
 						elev.Behaviour = EB_Idle
 						if elevio.GetFloor() == -1 {
+							break
+						}
+						if requests.RequestsHere(orderMatrix, elev.Floor) {
+							fmt.Println("Stop at floor: ", orderMatrix)
+							doorOpenCh <- true
 							break
 						}
 						fmt.Println("Stop at floor: ", elev.Floor)
