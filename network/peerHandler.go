@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 	// "time"
 )
 
@@ -34,28 +35,37 @@ func (pH *PeerHandler) PeerHandler(id string,
 		case update := <-Ch_peerUpdate:
 
 			peerstatus, peerID := pH.updatePeers(update, id)
+			fmt.Println("After updating peers, peerstatus: ", peerstatus, " peerID: ", peerID)
+			fmt.Println("Active peers: ", pH.activePeers)
 			if peerstatus == "lostPeer" {
+				fmt.Println("Peer lost: ", peerID)
 				currentMasterID := updateMaster(pH.activePeers, Ch_isMaster, peerID)
 				if currentMasterID == id {
 					Ch_isMaster <- true
+					Ch_peerLost <- peerID
 				} else {
 					Ch_isMaster <- false
 				}
 				delete(pH.activePeers, peerID)
-				Ch_peerLost <- peerID
+				
 				fmt.Println("Peer lost, we made it passed: ", peerID)
 
 			} else if peerstatus == "newPeer" {
+				fmt.Println("New peer added: ", peerID)
 				currentMasterID := updateMaster(pH.activePeers, Ch_isMaster, peerID)
 				if currentMasterID == id {
 					Ch_isMaster <- true
+					Ch_newPeer <- peerID
 				} else {
 					Ch_isMaster <- false
 				}
 				pH.activePeers[peerID] = peers.Peer{ID: peerID}
-				Ch_newPeer <- peerID
+				
 				fmt.Println("New peer added, we made it passed: ", peerID)
 			}
+
+		default:
+			time.Sleep(1 * time.Millisecond)
 
 		}
 	}
@@ -64,6 +74,7 @@ func (pH *PeerHandler) PeerHandler(id string,
 
 func (pH *PeerHandler) updatePeers(update peers.PeersUpdate, ownID string) (string, string) {
 	// Updates activePeers
+	fmt.Println("Updating peers")
 	changedAllPeers := ""
 	peerID := ""
 

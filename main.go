@@ -122,7 +122,7 @@ func main() {
 								 hardwareChannels.Ch_buttonPress, 
 								 Ch_clearedFloor, 
 								 rxChannels.Ch_ordersFromMaster,
-								Ch_orderCopyRequest)
+								 Ch_orderCopyRequest)
 
 	select {}
 }

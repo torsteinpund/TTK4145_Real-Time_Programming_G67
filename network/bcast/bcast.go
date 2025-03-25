@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"time"
 )
 
 const bufSize = 1024
+const retransmitInterval = 100 * time.Microsecond
+const retransmitCount = 20
 
 // Encodes received values from `chans` into type-tagged JSON, then broadcasts
 // it on `port`
@@ -39,8 +42,11 @@ func Transmitter(port int, chans ...interface{}) {
 		        "Either send smaller packets, or go to network/bcast/bcast.go and increase the buffer size",
 		        len(ttj), bufSize, string(ttj)))
 		}
-		conn.WriteTo(ttj, addr)
-    		
+
+		for i := 0; i < retransmitCount; i++ {
+			conn.WriteTo(ttj, addr)
+    		time.Sleep(retransmitInterval)
+		}
 	}
 }
 

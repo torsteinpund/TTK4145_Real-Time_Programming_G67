@@ -87,11 +87,11 @@ func Master(ID string,
 				allElevatorStates[newPeer] = elevator
 			}
 
-			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			lastGlobaleOrderMap = updatedOrders
-			fmt.Println("Master has reassigned the new peer")
-			Ch_ordersFromMaster <- updatedOrders
-			fmt.Println("Master has sent the updated orders to the slave")
+			// updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+			// lastGlobaleOrderMap = updatedOrders
+			// fmt.Println("Master has reassigned the new peer")
+			// Ch_ordersFromMaster <- updatedOrders
+			// fmt.Println("Master has sent the updated orders to the slave")
 
 		case newOrderEvent := <-Ch_registerOrder:
 			fmt.Println("Master has received a new order event")
@@ -121,7 +121,7 @@ func Master(ID string,
 			fmt.Println("Master has received a check if master")
 			if masterCheck {
 				Ch_orderCopyRequest <- true //If the master is still running, the ordercopy is passed through the ToslavesChannel.
-
+				fmt.Println("Master has requested an order copy")
 			} else {
 				fmt.Println("Mayday, Mayday. Getting sucked into the matrix: " + ID + " is getting ready to work for free")
 				stuckInTheMatrix:
@@ -137,15 +137,13 @@ func Master(ID string,
 
 					// case <-Ch_newPeer:
 
-					// case <-Ch_peerLost:
-						
+					// case <-Ch_peerLost:	
 
 					case <-Ch_registerOrder:
 
 					case <-Ch_stateUpdate:
 
-					// case orderCopyResp := <-Ch_orderCopyResponse:
-					// 	copyGlobalOrderMap = orderCopyResp
+					case <-Ch_orderCopyResponse:
 
 					default:
 						time.Sleep(10 * time.Millisecond)
@@ -220,9 +218,6 @@ func Master(ID string,
 }
 
 func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorStates map[string]StateSingleElevator) GlobalOrderMap {
-	// fmt.Println("Reassigning orders")
-	// fmt.Println("HallOrders: ", hallOrders)
-	// fmt.Println("AllElevatorStates: ", allElevatorStates)
 	unavailableElevators := []string{}
 	availableElevatorsMap := map[string]StateSingleElevator{}
 
@@ -234,10 +229,15 @@ func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorState
 			availableElevatorsMap[elevatorID] = elevatorState
 		}
 	}
-
 	//Calculates which available elevators should take the hallorders of the lost peer
-	allElevators := AllElevators{GlobalOrders: hallOrders, States: availableElevatorsMap}
-	globOrderMap := hallAssignerExec(allElevators)
+	globOrderMap := GlobalOrderMap{}
+	if len(availableElevatorsMap) > 0 {
+		allElevators := AllElevators{GlobalOrders: hallOrders, States: availableElevatorsMap}
+		globOrderMap = hallAssignerExec(allElevators)
+		if globOrderMap == nil {
+			globOrderMap = GlobalOrderMap{}
+		}
+	}
 
 	//Add the cab-calls of the lost peer to the orderlist so it can be reminded of them when it returns
 	for _, elevatorID := range unavailableElevators {

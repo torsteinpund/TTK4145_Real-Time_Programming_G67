@@ -23,7 +23,7 @@ func Fsm(Ch_floorSensor <-chan int,
 	doorClose := time.NewTimer(3 * time.Second)
 	doorClose.Stop()
 	errorTimeout := time.NewTimer(5 * time.Second)
-	periodicStateUpdate := time.NewTicker(100 * time.Millisecond)
+	periodicStateUpdate := time.NewTicker(1 * time.Second)
 	elevio.SetDoorOpenLamp(false)
 	lastDirn := elev.Dirn
 
@@ -145,7 +145,7 @@ func Fsm(Ch_floorSensor <-chan int,
 		case <-periodicStateUpdate.C:
 			periodicStateUpdate.Stop()
 			Ch_stateUpdate <- elev
-			periodicStateUpdate.Reset(100 * time.Millisecond)
+			periodicStateUpdate.Reset(1 * time.Second)
 
 
 		case <-errorTimeout.C:
