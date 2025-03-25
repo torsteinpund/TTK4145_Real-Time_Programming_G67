@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 	"Driver-go/network/bcast"
 
@@ -24,17 +23,17 @@ func NewPeerHandler(id string) *PeerHandler {
 }
 
 func (pH *PeerHandler) PeerHandler(id string,
-	ch_RX RXChannels,
+	Ch_RX RXChannels,
 	Ch_peerUpdate <-chan peers.PeersUpdate,
 	Ch_peerLost chan<- string,
 	Ch_newPeer chan<- string,
 	Ch_isMaster chan<- bool) {
 
 
-	timeout := time.After(1000 *time.Millisecond)
+	timeout := time.After(250 *time.Millisecond)
 	existingPeers := make(map[string]peers.Peer)
 	currentMasterID := ""
-
+	masters := make(map[string]peers.Peer)
 
 
 	aloneOnNetworkLoop:
@@ -51,19 +50,22 @@ func (pH *PeerHandler) PeerHandler(id string,
 
 	
 	masterUpdate := make(chan string)
+	masterHbPort := 14343
+
 	if len(existingPeers) == 1{
 		fmt.Println("I am the first peer in this bitch")
-		go StartMasterHeartbeat(id,14343)
+		go StartMasterHeartbeat(id,masterHbPort)
 		Ch_isMaster <- true
 		Ch_newPeer <- id
 		currentMasterID = id
+		masters[currentMasterID] = peers.Peer{ID: currentMasterID}
 		
 	}else{
-		fmt.Println("Fant eksisterende peers")
+		fmt.Println("Found existing peers...")
 		Ch_isMaster <- false
 	}
 
-	go StartMasterReceiver(14343, masterUpdate)
+	go StartMasterReceiver(masterHbPort, masterUpdate)
 	pH.activePeers = existingPeers
 	fmt.Println(pH.activePeers)
 	for{
@@ -76,8 +78,8 @@ func (pH *PeerHandler) PeerHandler(id string,
 					if currentMasterID == id {
 						Ch_isMaster <- true
 						Ch_peerLost <-peerID
-						go StartMasterHeartbeat(id, 14343)
-						fmt.Println("Jeg ble ny master!")
+						go StartMasterHeartbeat(id, masterHbPort)
+						fmt.Println("I became the MAAAASTER!")
 					} else {
 						Ch_isMaster <- false
 					}
@@ -87,7 +89,7 @@ func (pH *PeerHandler) PeerHandler(id string,
 						Ch_peerLost <- peerID
 					}
 					delete(pH.activePeers,peerID)
-					fmt.Println("Peer mistet:", peerID)
+					fmt.Println("Peer lost:", peerID)
 				}
 				
 			}else if peerstatus == 	"newPeer" {
@@ -104,8 +106,13 @@ func (pH *PeerHandler) PeerHandler(id string,
 			if masterID == "" {
 				currentMasterID = updateMaster(pH.activePeers)
 			} else if masterID != currentMasterID {
-				fmt.Println("Oppdatert master status: nå er master", masterID)
+				fmt.Println("Updated master, the new master is ", masterID)
 				currentMasterID = masterID
+				if len(masters) > 1 {
+					masters = make(map[string]peers.Peer)
+					currentMasterID = updateMaster(pH.activePeers)
+					masters[currentMasterID] = peers.Peer{ID: currentMasterID}
+				}
 			}
 		}
 	}
@@ -127,7 +134,7 @@ func (pH *PeerHandler) updatePeers(update peers.PeersUpdate, ownID string) (stri
 	for _, lostID := range update.Lost {
 		if lostID != ownID {
 			delete(pH.activePeers, lostID)
-			fmt.Println("Fjernet tapt peer:", lostID)
+			fmt.Println("Removed peer: ", lostID)
 			changedAllPeers, peerID = "lostPeer", lostID
 		}
 	}
@@ -140,16 +147,16 @@ func updateMaster(activePeers map[string]peers.Peer) string {
 
 	peers := []int{}
 	for _, peer := range activePeers {
-		parts := strings.Split(peer.ID, ".")
-		if len(parts) == 0 {
-			fmt.Println("Invalid peer ID:", peer.ID)
-			return ""
-		}
-		// Use the last part of the IP adress (after last ".")
-		lastPart := parts[len(parts)-1]
-		int_ID, err := strconv.Atoi(lastPart)
+		// parts := strings.Split(peer.ID, ".")
+		// if len(parts) == 0 {
+		// 	fmt.Println("Invalid peer ID: ", peer.ID)
+		// 	return ""
+		// }
+		// // Use the last part of the IP adress (after last ".")
+		// lastPart := parts[len(parts)-1]
+		int_ID, err := strconv.Atoi(peer.ID)
 		if err != nil {
-			fmt.Println("Could not convert ID to int")
+			fmt.Println("Could not convert ID: ", peer.ID, " to int")
 			return ""
 		}
 		peers = append(peers, int_ID)
@@ -171,33 +178,31 @@ type MasterHeartBeat struct {
 
 
 func StartMasterHeartbeat(masterID string, port int) {
-    // Opprett en kanal for heartbeat meldinger
-    hbCh := make(chan MasterHeartBeat)
+    ch_heartbeat := make(chan MasterHeartBeat)
 
-    // Start transmitteren på den dedikerte porten
-    go bcast.Transmitter(port, hbCh)
+ 
+    go bcast.Transmitter(port, ch_heartbeat)
 
-    ticker := time.NewTicker(500 * time.Millisecond) // Heartbeat hvert 500ms
+    ticker := time.NewTicker(500 * time.Millisecond) 
     defer ticker.Stop()
 
     for {
         select {
         case <-ticker.C:
-            hb := MasterHeartBeat{
+            heartbeat := MasterHeartBeat{
                 MasterID:  masterID,
                 Timestamp: time.Now().UnixNano(),
             }
-            // Send heartbeat-meldingen til transmitter-kanalen
-            hbCh <- hb
+  
+            ch_heartbeat <- heartbeat
 
         }
     }
 }
 
-func StartMasterReceiver(port int, masterUpdateCh chan<- string) {
-    // Opprett en kanal som skal motta heartbeat-meldinger
-    hbCh := make(chan MasterHeartBeat)
-    go bcast.Receiver(port, hbCh)
+func StartMasterReceiver(port int, ch_masterUpdate chan<- string) {
+    ch_heartbeat := make(chan MasterHeartBeat)
+    go bcast.Receiver(port, ch_heartbeat)
 
     // Sjekk for heartbeats kontinuerlig
     timeoutDuration := 1 * time.Second
@@ -205,16 +210,16 @@ func StartMasterReceiver(port int, masterUpdateCh chan<- string) {
 
     for {
         select {
-        case hb := <-hbCh:
+        case heartbeat := <-ch_heartbeat:
             // Oppdater siste heartbeat tid
-			// fmt.Println("MasterIdMottatt: ",hb.MasterID)
+			fmt.Println("MasterIdMottatt: ",heartbeat.MasterID)
             lastHeartbeat = time.Now()
-            masterUpdateCh <- hb.MasterID
+            ch_masterUpdate <- heartbeat.MasterID
 
         default:
             if time.Since(lastHeartbeat) > timeoutDuration {
                 fmt.Println("Ingen master heartbeat mottatt innenfor timeout - master antas nede!")
-                masterUpdateCh <- ""
+                ch_masterUpdate <- ""
                 lastHeartbeat = time.Now()
             }
             time.Sleep(50 * time.Millisecond)

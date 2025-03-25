@@ -19,6 +19,7 @@ type TXChannels struct {
 	Ch_stateUpdate        chan Elevator       `addr:"tx_elevatorupdatechannel"`
 	Ch_orderEventToMaster chan OrderEvent     `addr:"tx_registerorderchannel"`
 	Ch_ordersFromMaster   chan GlobalOrderMap `addr:"tx_ordersfrommaster"`
+	Ch_orderCopyResponse  chan GlobalOrderMap `addr:"tx_ordercopyresponse"`
 }
 
 

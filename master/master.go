@@ -87,16 +87,6 @@ func Master(ID string,
 				allElevatorStates[newPeer] = elevator
 			}
 
-			// updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			// lastGlobaleOrderMap = updatedOrders
-			// fmt.Println("Master has reassigned the new peer")
-			// Ch_ordersFromMaster <- updatedOrders
-			// fmt.Println("Master has sent the updated orders to the slave")
-			// updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			// lastGlobaleOrderMap = updatedOrders
-			// fmt.Println("Master has reassigned the new peer")
-			// Ch_ordersFromMaster <- updatedOrders
-			// fmt.Println("Master has sent the updated orders to the slave")
 
 		case newOrderEvent := <-Ch_registerOrder:
 			fmt.Println("Master has received a new order event")
@@ -140,10 +130,7 @@ func Master(ID string,
 							break stuckInTheMatrix
 						}
 
-					// case <-Ch_newPeer:
-
-					// case <-Ch_peerLost:	
-
+	
 					case <-Ch_registerOrder:
 
 					case <-Ch_stateUpdate:

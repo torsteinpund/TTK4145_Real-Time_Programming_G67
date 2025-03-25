@@ -11,7 +11,7 @@ import (
 
 const bufSize = 1024
 const retransmitInterval = 100 * time.Microsecond
-const retransmitCount = 1
+const retransmitCount = 20
 
 // Encodes received values from `chans` into type-tagged JSON, then broadcasts
 // it on `port`
