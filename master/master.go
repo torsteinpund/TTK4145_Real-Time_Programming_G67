@@ -135,9 +135,9 @@ func Master(ID string,
 							break stuckInTheMatrix
 						}
 
-					case <-Ch_newPeer:
+					// case <-Ch_newPeer:
 
-					case <-Ch_peerLost:
+					// case <-Ch_peerLost:
 						
 
 					case <-Ch_registerOrder:

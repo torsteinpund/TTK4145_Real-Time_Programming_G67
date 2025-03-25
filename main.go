@@ -21,9 +21,9 @@ func main() {
     var id string
     var port string
     flag.StringVar(&id, "id", "", "The ID of the elevator")
-    flag.StringVar(&port, "port", "15657", "The port for the elevator hardware connection")
+    flag.StringVar(&port, "port", "19091", "The port for the elevator hardware connection")
 
-
+	// Standard port is 15657
     // Parse command-line flags
     flag.Parse()
 
@@ -50,6 +50,7 @@ func main() {
 	Ch_peerUpdate   := make(chan peers.PeersUpdate)
 	Ch_orderCopyResponse := make(chan GlobalOrderMap)
 	Ch_orderCopyRequest := make(chan bool)
+	
 
 	hardwareChannels := elevio.HardwareChannels{
 		Ch_buttonPress: 	make(chan ButtonEvent),
@@ -62,7 +63,7 @@ func main() {
 		Ch_stateUpdate:      make(chan Elevator),
 		Ch_registerOrder:    make(chan OrderEvent),
 		Ch_ordersFromMaster: make(chan GlobalOrderMap),
-		Ch_orderCopyRequest: make(chan bool),
+		Ch_orderCopyRequest: Ch_orderCopyRequest,
 	}
 
 	txChannels := network.TXChannels{
@@ -121,7 +122,7 @@ func main() {
 								 hardwareChannels.Ch_buttonPress, 
 								 Ch_clearedFloor, 
 								 rxChannels.Ch_ordersFromMaster,
-								 Ch_orderCopyRequest)
+								Ch_orderCopyRequest)
 
 	select {}
 }
