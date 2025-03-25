@@ -61,7 +61,6 @@ func (pH *PeerHandler) PeerHandler(id string,
 	}else{
 		fmt.Println("Fant eksisterende peers")
 		Ch_isMaster <- false
-		Ch_newPeer <- id
 	}
 
 	go StartMasterReceiver(14343, masterUpdate)
@@ -70,31 +69,36 @@ func (pH *PeerHandler) PeerHandler(id string,
 	for{
 		select{
 		case update := <- Ch_peerUpdate:
-			peerstatus, peerID := pH.updatePeers(update)
+			peerstatus, peerID := pH.updatePeers(update, id)
 			if peerstatus == "lostPeer" {
 				if peerID == currentMasterID {
 					currentMasterID = updateMaster(pH.activePeers)
 					if currentMasterID == id {
 						Ch_isMaster <- true
+						Ch_peerLost <-peerID
 						go StartMasterHeartbeat(id, 14343)
 						fmt.Println("Jeg ble ny master!")
 					} else {
 						Ch_isMaster <- false
 					}
 					delete(pH.activePeers, peerID)
-					Ch_peerLost <-peerID
 				}else{
+					if currentMasterID == id{
+						Ch_peerLost <- peerID
+					}
 					delete(pH.activePeers,peerID)
-					Ch_peerLost <- peerID
 					fmt.Println("Peer mistet:", peerID)
 				}
 				
 			}else if peerstatus == 	"newPeer" {
-				if currentMasterID != id{
+				if currentMasterID == id {
+					Ch_isMaster <- true
+					Ch_newPeer <- peerID
+				} else {
 					Ch_isMaster <- false
 				}
 				pH.activePeers[peerID] = peers.Peer{ID: peerID}
-				Ch_newPeer <- peerID
+			
 				}
 		case masterID := <-masterUpdate:
 			if masterID == "" {
@@ -203,7 +207,7 @@ func StartMasterReceiver(port int, masterUpdateCh chan<- string) {
         select {
         case hb := <-hbCh:
             // Oppdater siste heartbeat tid
-			fmt.Println("MasterIdMottatt: ",hb.MasterID)
+			// fmt.Println("MasterIdMottatt: ",hb.MasterID)
             lastHeartbeat = time.Now()
             masterUpdateCh <- hb.MasterID
 
