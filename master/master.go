@@ -9,7 +9,7 @@ import (
 	// "math"
 	// "strings"
 	"time"
-	"Driver-go/backup"
+	// "Driver-go/backup"
 )
 
 // StateSingleElevator represents the state of a single elevator
@@ -87,11 +87,11 @@ func Master(ID string,
 				allElevatorStates[newPeer] = elevator
 			}
 
-			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			lastGlobaleOrderMap = updatedOrders
-			fmt.Println("Master has reassigned the new peer")
-			Ch_ordersFromMaster <- updatedOrders
-			fmt.Println("Master has sent the updated orders to the slave")
+			// updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+			// lastGlobaleOrderMap = updatedOrders
+			// fmt.Println("Master has reassigned the new peer")
+			// Ch_ordersFromMaster <- updatedOrders
+			// fmt.Println("Master has sent the updated orders to the slave")
 
 		case newOrderEvent := <-Ch_registerOrder:
 			fmt.Println("Master has received a new order event")
@@ -121,30 +121,10 @@ func Master(ID string,
 			fmt.Println("Master has received a check if master")
 			if masterCheck {
 				Ch_orderCopyRequest <- true //If the master is still running, the ordercopy is passed through the ToslavesChannel.
-
+				fmt.Println("Starting to operate as master")
 			} else {
 				fmt.Println("Mayday, Mayday. Getting sucked into the matrix: " + ID + " is getting ready to work for free")
-				backupOrders, err := backup.ReadCabOrdersFromFile("caborders_backup.json")
 
-				if err != nil {
-					fmt.Println("Error reading cab orders from file:", err)
-				} else {
-					updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
-					for id, backupMatrix := range backupOrders {
-						// Hent ut den eksisterende OrderMatrix fra mappet, eller opprett en ny om den ikke finnes
-						matrix, exists := updatedGlobalOrders[id]
-						if !exists {
-							matrix = OrderMatrix{}
-						}
-						for floor := 0; floor < NUMFLOORS; floor++ {
-							// Oppdater den lokale kopien
-							matrix[floor][BT_Cab] = matrix[floor][BT_Cab] || backupMatrix[floor][BT_Cab]
-						}
-						// Skriv den endrede kopien tilbake til mappet
-						updatedGlobalOrders[id] = matrix
-					}
-					Ch_ordersFromMaster <- updatedGlobalOrders
-				}
 				stuckInTheMatrix:
 				for {
 					select {

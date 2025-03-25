@@ -4,7 +4,6 @@ import (
 	"Driver-go/lights"
 	. "Driver-go/types"
 	"fmt"
-	"Driver-go/backup"
 )
 
 func OrderHandler(ID string,
@@ -63,12 +62,6 @@ func OrderHandler(ID string,
 
 
 			case <-Ch_orderCopyRequest:
-				fmt.Println("OrderHandler: Mottok kopi-forespørsel. Skriver backup av cab-ordrene...")
-				if err := backup.WriteCabOrdersToFile(ordersFromMaster, "caborders_backup.json"); err != nil {
-					fmt.Println("Feil ved skriving av backup:", err)
-				} else {
-					fmt.Println("Backup skrevet til caborders_backup.json")
-				}
 				fmt.Println("Sender order copy response til master:", ordersFromMaster)
 				Ch_orderCopyResponse <- ordersFromMaster
 		}
