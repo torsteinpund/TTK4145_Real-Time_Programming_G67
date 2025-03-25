@@ -9,7 +9,7 @@ import (
 	// "math"
 	// "strings"
 	"time"
-	"Driver-go/backup"
+	// "Driver-go/backup"
 )
 
 // StateSingleElevator represents the state of a single elevator
@@ -87,6 +87,11 @@ func Master(ID string,
 				allElevatorStates[newPeer] = elevator
 			}
 
+			// updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
+			// lastGlobaleOrderMap = updatedOrders
+			// fmt.Println("Master has reassigned the new peer")
+			// Ch_ordersFromMaster <- updatedOrders
+			// fmt.Println("Master has sent the updated orders to the slave")
 			// updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 			// lastGlobaleOrderMap = updatedOrders
 			// fmt.Println("Master has reassigned the new peer")

@@ -4,7 +4,6 @@ import (
 	"Driver-go/lights"
 	. "Driver-go/types"
 	"fmt"
-	// "Driver-go/backup"
 )
 
 func OrderHandler(ID string,
@@ -24,12 +23,10 @@ func OrderHandler(ID string,
 			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
 			Ch_orderEventToMaster <- orderEvent
 
-
 		case ordersFromMaster = <-Ch_ordersFromMaster:
 			fmt.Println("Received orders from master", ordersFromMaster)
 			lights.SetLights(ordersFromMaster, ID)
 			Ch_localOrders <- ordersFromMaster[ID]
-
 
 		case dirnFloor := <-Ch_clearedFloor:
 			orders := []ButtonEvent{}
@@ -39,7 +36,7 @@ func OrderHandler(ID string,
 				orders = append(orders, hallButton)
 				orders = append(orders, cabButton)
 				hallButton1 := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallUp)}
-				if(dirnFloor.Floor == 0){
+				if dirnFloor.Floor == 0 {
 					orders = append(orders, hallButton1)
 				}
 			} else if dirnFloor.Dirn == MD_Up {
@@ -48,7 +45,7 @@ func OrderHandler(ID string,
 				orders = append(orders, hallButton)
 				orders = append(orders, cabButton)
 				hallButton1 := ButtonEvent{Floor: dirnFloor.Floor, Button: ButtonType(BT_HallDown)}
-				if(dirnFloor.Floor == (NUMFLOORS-1)){
+				if dirnFloor.Floor == (NUMFLOORS - 1) {
 					orders = append(orders, hallButton1)
 				}
 			} else {
@@ -61,18 +58,9 @@ func OrderHandler(ID string,
 			finishedOrder := OrderEvent{ElevatorID: ID, Completed: true, Orders: orders}
 			Ch_orderEventToMaster <- finishedOrder
 
-
-			case <-Ch_orderCopyRequest:
-				// fmt.Println("OrderHandler: Mottok kopi-forespørsel. Skriver backup av cab-ordrene...")
-				// if err := backup.WriteCabOrdersToFile(ordersFromMaster, "caborders_backup.json"); err != nil {
-				// 	fmt.Println("Feil ved skriving av backup:", err)
-				// } else {
-				// 	fmt.Println("Backup skrevet til caborders_backup.json")
-				// }
-				fmt.Println("Sender order copy response til master:", ordersFromMaster)
-				Ch_orderCopyResponse <- ordersFromMaster
+		case <-Ch_orderCopyRequest:
+			fmt.Println("Sender order copy response til master:", ordersFromMaster)
+			Ch_orderCopyResponse <- ordersFromMaster
 		}
 	}
 }
-
-

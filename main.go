@@ -34,8 +34,8 @@ func main() {
 	fmt.Println("ID: ", id)
 	fmt.Println("Port: ", port)
 
-	peerDetectionPort := 18191
-	bcastPort := 19191
+	peerDetectionPort := 18195
+	bcastPort := 19196
 
 	// id := network.SetID()
 
