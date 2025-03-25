@@ -50,3 +50,30 @@ func ReadCabOrdersFromFile(filename string) (GlobalOrderMap, error) {
 	}
 	return orders, nil
 }
+
+func IsGlobalOrderMapEmpty(orders GlobalOrderMap) bool {
+    for _, orderMatrix := range orders {
+        for floor := 0; floor < NUMFLOORS; floor++ {
+            for btn := 0; btn < NUMBUTTONTYPE; btn++ {
+                if orderMatrix[floor][btn] {
+                    return false
+                }
+            }
+        }
+    }
+    return true
+}
+
+func CheckIfUpdatedGlobalOrderMap(updatedOrders GlobalOrderMap, lastGlobaleOrderMap GlobalOrderMap) bool {
+	for elevatorID, orders := range updatedOrders {
+		for floor, row := range orders {
+			for button, isOrder := range row {
+				if isOrder != lastGlobaleOrderMap[elevatorID][floor][button] {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+

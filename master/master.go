@@ -124,27 +124,6 @@ func Master(ID string,
 
 			} else {
 				fmt.Println("Mayday, Mayday. Getting sucked into the matrix: " + ID + " is getting ready to work for free")
-				backupOrders, err := backup.ReadCabOrdersFromFile("caborders_backup.json")
-
-				if err != nil {
-					fmt.Println("Error reading cab orders from file:", err)
-				} else {
-					updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
-					for id, backupMatrix := range backupOrders {
-						// Hent ut den eksisterende OrderMatrix fra mappet, eller opprett en ny om den ikke finnes
-						matrix, exists := updatedGlobalOrders[id]
-						if !exists {
-							matrix = OrderMatrix{}
-						}
-						for floor := 0; floor < NUMFLOORS; floor++ {
-							// Oppdater den lokale kopien
-							matrix[floor][BT_Cab] = matrix[floor][BT_Cab] || backupMatrix[floor][BT_Cab]
-						}
-						// Skriv den endrede kopien tilbake til mappet
-						updatedGlobalOrders[id] = matrix
-					}
-					Ch_ordersFromMaster <- updatedGlobalOrders
-				}
 				stuckInTheMatrix:
 				for {
 					select {
@@ -193,7 +172,7 @@ func Master(ID string,
 
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 
-			if checkIfUpdatedGlobalOrderMap(updatedOrders, lastGlobaleOrderMap) {
+			if backup.CheckIfUpdatedGlobalOrderMap(updatedOrders, lastGlobaleOrderMap) {
 				lastGlobaleOrderMap = updatedOrders
 				Ch_ordersFromMaster <- updatedOrders
 				
@@ -298,19 +277,6 @@ func hallAssignerExec(input AllElevators) GlobalOrderMap {
 
 	return output
 
-}
-
-func checkIfUpdatedGlobalOrderMap(updatedOrders GlobalOrderMap, lastGlobaleOrderMap GlobalOrderMap) bool {
-	for elevatorID, orders := range updatedOrders {
-		for floor, row := range orders {
-			for button, isOrder := range row {
-				if isOrder != lastGlobaleOrderMap[elevatorID][floor][button] {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
 
 func getElevatorIDs(states map[string]StateSingleElevator) []string {
