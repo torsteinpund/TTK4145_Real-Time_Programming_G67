@@ -24,26 +24,26 @@ type TXChannels struct {
 }
 
 
-func getID(ipAdress string) string {
-	parts := strings.Split(ipAdress, ".")
-	return parts[len(parts)-1]
-}
+// func getID(ipAdress string) string {
+// 	parts := strings.Split(ipAdress, ".")
+// 	return parts[len(parts)-1]
+// }
 
 
-func SetID() string{
-	var IP string
-	var id string
-	if IP == "" {
-		localIP, err := getLocalIP()
-		if err != nil {
-			fmt.Println(err)
-			localIP = "DISCONNECTED"
-		}
-		IP = fmt.Sprintf(localIP)
-		id = getID(IP)
-	}
-	return id
-}
+// func SetID() string{
+// 	var IP string
+// 	var id string
+// 	if IP == "" {
+// 		localIP, err := getLocalIP()
+// 		if err != nil {
+// 			fmt.Println(err)
+// 			localIP = "DISCONNECTED"
+// 		}
+// 		IP = fmt.Sprintf(localIP)
+// 		id = getID(IP)
+// 	}
+// 	return id
+// }
 
 
 func getLocalIP() (string, error) {

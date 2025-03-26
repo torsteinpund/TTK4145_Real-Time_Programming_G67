@@ -1,22 +1,22 @@
-package lights
+package orders
 
 import (
-	"Driver-go/singleElevatorDriver/elevio"
+	"Driver-go/elevatorDriver"
 	. "Driver-go/types"
 )
 
 
-func SetAllLights(globalOrderMap GlobalOrderMap, ID string){
+func setAllLights(globalOrderMap GlobalOrderMap, ID string){
 	setHallLights(globalOrderMap)
 	setCabLights(globalOrderMap[ID])
 }
 
 
-func SetLocalLights(orderMatrix OrderMatrix){
+func setLocalLights(orderMatrix OrderMatrix){
 	for floor := 0; floor < NUMFLOORS; floor++ {
 		for btn := 0; btn < NUMBUTTONTYPE; btn++ {
 			state := orderMatrix[floor][btn]
-			elevio.SetButtonLamp(ButtonType(btn), floor, state)
+			elevatorDriver.SetButtonLamp(ButtonType(btn), floor, state)
 		}
 	}
 }
@@ -33,7 +33,7 @@ func setHallLights(globalOrderMap GlobalOrderMap) {
 					break
 				}
 			}
-			elevio.SetButtonLamp(ButtonType(btn), floor, hasOrder)
+			elevatorDriver.SetButtonLamp(ButtonType(btn), floor, hasOrder)
 		}
 	}
 }
@@ -42,7 +42,7 @@ func setHallLights(globalOrderMap GlobalOrderMap) {
 func setCabLights(orderMatrix OrderMatrix) {
 	for floor := 0; floor < NUMFLOORS; floor++ {
 		state := orderMatrix[floor][BT_Cab]
-		elevio.SetButtonLamp(BT_Cab, floor, state)
+		elevatorDriver.SetButtonLamp(BT_Cab, floor, state)
 	}
 }	
 

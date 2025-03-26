@@ -5,18 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	//"Driver-go/cost"
-	// "math"
-	// "strings"
 	"time"
-	"Driver-go/backup"
 )
 
 // StateSingleElevator represents the state of a single elevator
 type StateSingleElevator struct {
-	ElevatorBehaviour string `json:"behaviour"`
-	Floor             int    `json:"floor"`
-	Direction         string `json:"direction"`
+	ElevatorBehaviour string          `json:"behaviour"`
+	Floor             int             `json:"floor"`
+	Direction         string 		  `json:"direction"`
 	Available         bool
 	CabOrders         [NUMFLOORS]bool `json:"cabRequests"`
 }
@@ -31,29 +27,25 @@ func unitializedSingleStateElevator() StateSingleElevator {
 	}
 }
 
-// Elevators represents the global state of all elevators, including global orders
-// and the state of each individual elevator.
 type AllElevators struct {
-	GlobalOrders [NUMFLOORS][NUMHALLBUTTONS]bool `json:"hallRequests"`
-	//The key to States is the local IP address of the elevator
-	States map[string]StateSingleElevator `json:"states"`
+	GlobalOrders [NUMFLOORS][NUMHALLBUTTONS]bool 	 `json:"hallRequests"`
+	AllElevatorStates map[string]StateSingleElevator `json:"states"`
 }
 
 func Master(ID string,
-	Ch_isMaster <-chan bool,
-	Ch_peerLost <-chan string,
-	Ch_ordersFromMaster chan<- GlobalOrderMap,
-	Ch_registerOrder <-chan OrderEvent,
-	Ch_stateUpdate <-chan Elevator,
-	Ch_orderCopyResponse <-chan GlobalOrderMap,
-	Ch_orderCopyRequest chan<- bool,
-	Ch_newPeer <-chan string,) {
-	fmt.Println("Running master...")
+			Ch_isMaster           <-chan bool,
+			Ch_peerLost 		  <-chan string,
+			Ch_ordersFromMaster   chan<- GlobalOrderMap,
+			Ch_registerOrder 	  <-chan OrderEvent,
+			Ch_stateUpdate 		  <-chan Elevator,
+			Ch_newMasterOrderCopy <-chan GlobalOrderMap,
+			Ch_orderCopyRequest   chan<- bool,
+			Ch_newPeer 			  <-chan string) {
 
+	fmt.Println("Running master...")
 	allElevatorStates := map[string]StateSingleElevator{}
 	hallOrders := [NUMFLOORS][NUMHALLBUTTONS]bool{}
 	lastGlobaleOrderMap := GlobalOrderMap{}
-
 	for {
 		select {
 
@@ -63,7 +55,6 @@ func Master(ID string,
 			if !exist {
 				elevator = StateSingleElevator{}
 				elevator.Available = false
-
 				allElevatorStates[lostPeer] = elevator
 			} else {
 				elevator.Available = false
@@ -87,9 +78,7 @@ func Master(ID string,
 				allElevatorStates[newPeer] = elevator
 			}
 
-
 		case newOrderEvent := <-Ch_registerOrder:
-			fmt.Println("Master has received a new order event")
 			elevatorID := newOrderEvent.ElevatorID
 			_, exist := allElevatorStates[elevatorID]
 			if !exist {
@@ -115,8 +104,7 @@ func Master(ID string,
 		case masterCheck := <-Ch_isMaster:
 			fmt.Println("Master has received a check if master")
 			if masterCheck {
-				Ch_orderCopyRequest <- true //If the master is still running, the ordercopy is passed through the ToslavesChannel.
-				fmt.Println("Master has requested an order copy")
+				Ch_orderCopyRequest <- true
 			} else {
 				fmt.Println("Mayday, Mayday. Getting sucked into the matrix: " + ID + " is getting ready to work for free")
 				stuckInTheMatrix:
@@ -130,27 +118,18 @@ func Master(ID string,
 							break stuckInTheMatrix
 						}
 
-	
 					case <-Ch_registerOrder:
-
 					case <-Ch_stateUpdate:
-
-					case <-Ch_orderCopyResponse:
-
-					default:
-						time.Sleep(10 * time.Millisecond)
-
+					case <-Ch_newMasterOrderCopy:
 					}
 				}
 			}
 		case state := <-Ch_stateUpdate:
-			// reassign := false
 			elevator, exist := allElevatorStates[state.ID]
 			cabOrders := [NUMFLOORS]bool{}
 
 			if exist {
 				cabOrders = elevator.CabOrders
-				// reassign = elevator.Available != state.Available //If the elevator is not available, we should reassign the order.
 			}
 
 			allElevatorStates[state.ID] = StateSingleElevator{
@@ -162,49 +141,17 @@ func Master(ID string,
 
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 
-			if backup.CheckIfUpdatedGlobalOrderMap(updatedOrders, lastGlobaleOrderMap) {
+			if checkIfUpdatedGlobalOrderMap(updatedOrders, lastGlobaleOrderMap) {
 				lastGlobaleOrderMap = updatedOrders
 				Ch_ordersFromMaster <- updatedOrders
 				
 			}
-			// fmt.Println("AllElevatorStates: ", allElevatorStates)
 
-		case orderCopy := <-Ch_orderCopyResponse:
-			fmt.Println("Master has received an order copy response", orderCopy)
-			for elevatorID, orderMatrix := range orderCopy { //Loops through every elevator
-				for floor, row := range orderMatrix {
-					for button, isOrder := range row {
-						switch ButtonType(button) {
-						case BT_HallUp, BT_HallDown:
-							hallOrders[floor][button] = hallOrders[floor][button] || isOrder
-						case BT_Cab:
-							elevator, exist := allElevatorStates[elevatorID]
-							if !exist {
-								cabOrders := [NUMFLOORS]bool{}
-								cabOrders[floor] = isOrder
-								allElevatorStates[elevatorID] = StateSingleElevator{
-									"idle",
-									0,
-									"down",
-									true,
-									cabOrders}
-
-							} else {
-								elevator.CabOrders[floor] = elevator.CabOrders[floor] || isOrder
-								allElevatorStates[elevatorID] = elevator
-							}
-						}
-					}
-				}
-			}
-
+		case orderCopy := <-Ch_newMasterOrderCopy:
+			fmt.Println("New master has received an order copy response", orderCopy)
+			updateAllElevators(hallOrders, orderCopy, allElevatorStates)
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			fmt.Println("Master has reassigned the orders after receiving an order copy response", updatedOrders)
 			Ch_ordersFromMaster <- updatedOrders
-
-		default:
-			// fmt.Println("Master is waiting for a message")
-			// time.Sleep(100 * time.Millisecond)
 		}
 	}
 }
@@ -224,7 +171,7 @@ func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorState
 	//Calculates which available elevators should take the hallorders of the lost peer
 	globOrderMap := GlobalOrderMap{}
 	if len(availableElevatorsMap) > 0 {
-		allElevators := AllElevators{GlobalOrders: hallOrders, States: availableElevatorsMap}
+		allElevators := AllElevators{GlobalOrders: hallOrders, AllElevatorStates: availableElevatorsMap}
 		globOrderMap = hallAssignerExec(allElevators)
 		if globOrderMap == nil {
 			globOrderMap = GlobalOrderMap{}
@@ -243,6 +190,37 @@ func reAssignOrders(hallOrders [NUMFLOORS][NUMHALLBUTTONS]bool, allElevatorState
 
 	return globOrderMap
 }
+
+func updateAllElevators(hallOrders HallOrders, orderCopy GlobalOrderMap, allElevatorStates map[string]StateSingleElevator) (map[string]StateSingleElevator, HallOrders){
+	for elevatorID, orderMatrix := range orderCopy {
+		for floor, row := range orderMatrix {
+			for button, isOrder := range row {
+				switch ButtonType(button) {
+				case BT_HallUp, BT_HallDown:
+					hallOrders[floor][button] = hallOrders[floor][button] || isOrder
+				case BT_Cab:
+					elevator, exist := allElevatorStates[elevatorID]
+					if !exist {
+						cabOrders := [NUMFLOORS]bool{}
+						cabOrders[floor] = isOrder
+						allElevatorStates[elevatorID] = StateSingleElevator{
+							"idle",
+							0,
+							"down",
+							true,
+							cabOrders}
+
+					} else {
+						elevator.CabOrders[floor] = elevator.CabOrders[floor] || isOrder
+						allElevatorStates[elevatorID] = elevator
+					}
+				}
+			}
+		}
+	}
+	return allElevatorStates,hallOrders
+}
+
 
 func hallAssignerExec(input AllElevators) GlobalOrderMap {
 	hraExecutable := "hall_request_assigner"
@@ -286,3 +264,31 @@ func getElevatorCabOrders(ordermatrix OrderMatrix) [NUMFLOORS]bool {
 	}
 	return cabOrders
 }
+
+
+// func IsGlobalOrderMapEmpty(orders GlobalOrderMap) bool {
+//     for _, orderMatrix := range orders {
+//         for floor := 0; floor < NUMFLOORS; floor++ {
+//             for btn := 0; btn < NUMBUTTONTYPE; btn++ {
+//                 if orderMatrix[floor][btn] {
+//                     return false
+//                 }
+//             }
+//         }
+//     }
+//     return true
+// }
+
+func checkIfUpdatedGlobalOrderMap(updatedOrders GlobalOrderMap, lastGlobaleOrderMap GlobalOrderMap) bool {
+	for elevatorID, orders := range updatedOrders {
+		for floor, row := range orders {
+			for button, isOrder := range row {
+				if isOrder != lastGlobaleOrderMap[elevatorID][floor][button] {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+

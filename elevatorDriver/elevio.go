@@ -1,4 +1,4 @@
-package elevio
+package elevatorDriver
 
 import (
 	. "Driver-go/types"
@@ -34,27 +34,10 @@ func InitHardwareConnection(addr string, ch_hardware HardwareChannels) {
 	}
 	_initialized = true
 
-	go PollButtons(ch_hardware.Ch_buttonPress)
-	go PollFloorSensor(ch_hardware.Ch_floorSensor)
-	go PollStopButton(ch_hardware.Ch_stopButton)
-	go PollObstructionSwitch(ch_hardware.Ch_obstruction)
-}
-
-func ElevatorUninitialized() Elevator {
-	return Elevator{
-		Floor:     -1,
-		Dirn:      MD_Stop,
-		Behaviour: ElevatorBehaviour(EB_Idle),
-		Config: struct {
-			ClearRequestVariant ClearRequestVariant
-			DoorOpenDuration    float64
-			TimeBetweenFloors   float64
-		}{
-			ClearRequestVariant: CV_InDirn,
-			DoorOpenDuration:    3.0,
-			TimeBetweenFloors:   2.0,
-		},
-	}
+	go pollButtons(ch_hardware.Ch_buttonPress)
+	go pollFloorSensor(ch_hardware.Ch_floorSensor)
+	go pollStopButton(ch_hardware.Ch_stopButton)
+	go pollObstructionSwitch(ch_hardware.Ch_obstruction)
 }
 
 func InitElevator(numFloors int, numButtonTypes int, elev Elevator, id string) Elevator {
@@ -64,49 +47,44 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator, id string) E
 	}
 
 	elev = Elevator{
-		// Start on an invalid floor
 		ID:        id,
 		Floor:     -1,
 		Dirn:      MD_Stop,
 		Behaviour: ElevatorBehaviour(EB_Idle),
 		Available: true,
 		Config: struct {
-			ClearRequestVariant ClearRequestVariant
 			DoorOpenDuration    float64
 			TimeBetweenFloors   float64
 		}{
-			ClearRequestVariant: CV_InDirn,
 			DoorOpenDuration:    3.0,
 			TimeBetweenFloors:   2.0,
 		},
 	}
 
-	if initialFloor := GetFloor(); initialFloor == -1 {
+	if initialFloor := getFloor(); initialFloor == -1 {
 		fmt.Println("Elevator is between floors on startup. Running initialization...")
-		elev.Behaviour, elev.Dirn = InitBetweenFloors()
+		elev.Behaviour, elev.Dirn = initBetweenFloors()
 	}
-	elev.Floor = GetFloor()
+	elev.Floor = getFloor()
 
 	fmt.Println("Elevator initialized:")
 	return elev
 }
 
-func InitBetweenFloors() (ElevatorBehaviour, MotorDirection) {
-	// Move the elevator down until it reaches a floor
+func initBetweenFloors() (ElevatorBehaviour, MotorDirection) {
 	for {
-		SetMotorDirection(MD_Down)
-		if GetFloor() != -1 {
+		setMotorDirection(MD_Down)
+		if getFloor() != -1 {
 			break
 		}
 	}
-	// Update the elevator's state
 	dirn := MD_Stop
-	SetMotorDirection(MD_Stop)
+	setMotorDirection(MD_Stop)
 	behaviour := ElevatorBehaviour(EB_Idle)
 	return behaviour, dirn
 }
 
-func SetMotorDirection(dir MotorDirection) {
+func setMotorDirection(dir MotorDirection) {
 	write([4]byte{1, byte(dir), 0, 0})
 }
 
@@ -114,26 +92,25 @@ func SetButtonLamp(button ButtonType, floor int, value bool) {
 	write([4]byte{2, byte(button), byte(floor), toByte(value)})
 }
 
-func SetFloorIndicator(floor int) {
+func setFloorIndicator(floor int) {
 	write([4]byte{3, byte(floor), 0, 0})
 }
 
-func SetDoorOpenLamp(value bool) {
+func setDoorOpenLamp(value bool) {
 	write([4]byte{4, toByte(value), 0, 0})
 }
 
-func SetStopLamp(value bool) {
+func setStopLamp(value bool) {
 	write([4]byte{5, toByte(value), 0, 0})
 }
 
-func PollButtons(receiver chan<- ButtonEvent) {
-
+func pollButtons(receiver chan<- ButtonEvent) {
 	prev := make([][3]bool, NUMFLOORS)
 	for {
 		time.Sleep(_pollRate)
 		for f := 0; f < NUMFLOORS; f++ {
 			for b := ButtonType(0); b < 3; b++ {
-				v := GetButton(b, f)
+				v := getButton(b, f)
 				if v != prev[f][b] && v {
 					receiver <- ButtonEvent{Floor: f, Button: ButtonType(b)}
 				}
@@ -143,11 +120,11 @@ func PollButtons(receiver chan<- ButtonEvent) {
 	}
 }
 
-func PollFloorSensor(receiver chan<- int) {
+func pollFloorSensor(receiver chan<- int) {
 	prev := -1
 	for {
 		time.Sleep(_pollRate)
-		v := GetFloor()
+		v := getFloor()
 		if v != prev && v != -1 {
 			receiver <- v
 		}
@@ -155,11 +132,11 @@ func PollFloorSensor(receiver chan<- int) {
 	}
 }
 
-func PollStopButton(receiver chan<- bool) {
+func pollStopButton(receiver chan<- bool) {
 	prev := false
 	for {
 		time.Sleep(_pollRate)
-		v := GetStop()
+		v := getStop()
 		if v != prev {
 			receiver <- v
 		}
@@ -167,11 +144,11 @@ func PollStopButton(receiver chan<- bool) {
 	}
 }
 
-func PollObstructionSwitch(receiver chan<- bool) {
+func pollObstructionSwitch(receiver chan<- bool) {
 	prev := false
 	for {
 		time.Sleep(_pollRate)
-		v := GetObstruction()
+		v := getObstruction()
 		if v != prev {
 			receiver <- v
 		}
@@ -179,12 +156,12 @@ func PollObstructionSwitch(receiver chan<- bool) {
 	}
 }
 
-func GetButton(button ButtonType, floor int) bool {
+func getButton(button ButtonType, floor int) bool {
 	a := read([4]byte{6, byte(button), byte(floor), 0})
 	return toBool(a[1])
 }
 
-func GetFloor() int {
+func getFloor() int {
 	a := read([4]byte{7, 0, 0, 0})
 	if a[1] != 0 {
 		return int(a[2])
@@ -193,12 +170,12 @@ func GetFloor() int {
 	}
 }
 
-func GetStop() bool {
+func getStop() bool {
 	a := read([4]byte{8, 0, 0, 0})
 	return toBool(a[1])
 }
 
-func GetObstruction() bool {
+func getObstruction() bool {
 	a := read([4]byte{9, 0, 0, 0})
 	return toBool(a[1])
 }

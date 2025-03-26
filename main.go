@@ -5,9 +5,8 @@ import (
 	"Driver-go/network"
 	"Driver-go/network/bcast"
 	"Driver-go/network/peers"
-	"Driver-go/orderHandler"
-	"Driver-go/singleElevatorDriver/elevio"
-	"Driver-go/singleElevatorDriver/fsm"
+	"Driver-go/orders"
+	"Driver-go/elevatorDriver"
 	. "Driver-go/types"
 	"flag"
 	"fmt"
@@ -16,14 +15,12 @@ import (
 func main() {
 	fmt.Println("Hello, World!")
 
-	// Define command-line flags
 	var id string
 	var port string
 	flag.StringVar(&id, "id", "", "The ID of the elevator")
 	flag.StringVar(&port, "port", "19191", "The port for the elevator hardware connection")
 
 	// Standard port is 15657
-	// Parse command-line flags
 	flag.Parse()
 
 	if id == "" {
@@ -37,7 +34,6 @@ func main() {
 	peerDetectionPort := 18195
 	bcastPort := 19195
 
-	// id := network.SetID()
 
 	Ch_txEnable := make(chan bool)
 	Ch_isMaster := make(chan bool)
@@ -49,11 +45,9 @@ func main() {
 	Ch_orderCopyResponse := make(chan GlobalOrderMap)
 	Ch_orderCopyRequest := make(chan bool)
 	Ch_networkConnection := make(chan bool)
-	// Ch_networkToFSM := make(chan bool)
 
 
-
-	hardwareChannels := elevio.HardwareChannels{
+	hardwareChannels := elevatorDriver.HardwareChannels{
 		Ch_buttonPress: make(chan ButtonEvent),
 		Ch_floorSensor: make(chan int),
 		Ch_stopButton:  make(chan bool),
@@ -73,15 +67,15 @@ func main() {
 		Ch_ordersFromMaster:   make(chan GlobalOrderMap),
 	}
 
-	elevio.InitHardwareConnection("localhost:"+port, hardwareChannels)
-	elevator := elevio.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{}, id)
-	pH := network.NewPeerHandler(id)
+	elevatorDriver.InitHardwareConnection("localhost:"+port, hardwareChannels)
+	elevator := elevatorDriver.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{}, id)
+	
 
 	go peers.Transmitter(peerDetectionPort, id, Ch_txEnable)
 	go peers.Receiver(peerDetectionPort, Ch_peerUpdate)
 	Ch_txEnable <- true
 
-	go pH.PeerHandler(id,
+	go network.PeerHandler(id,
 		rxChannels,
 		Ch_peerUpdate,
 		Ch_peerLost,
@@ -110,7 +104,7 @@ func main() {
 		Ch_orderCopyRequest,
 		Ch_newPeer)
 
-	go fsm.Fsm(hardwareChannels.Ch_floorSensor,
+	go elevatorDriver.Fsm(hardwareChannels.Ch_floorSensor,
 		hardwareChannels.Ch_stopButton,
 		hardwareChannels.Ch_obstruction,
 		Ch_localOrders,
@@ -118,7 +112,7 @@ func main() {
 		txChannels.Ch_stateUpdate,
 		elevator)
 
-	go orderHandler.OrderHandler(elevator.ID,
+	go orders.OrderHandler(elevator.ID,
 		Ch_localOrders,
 		txChannels.Ch_orderEventToMaster,
 		Ch_orderCopyResponse,
@@ -127,8 +121,6 @@ func main() {
 		rxChannels.Ch_ordersFromMaster,
 		Ch_orderCopyRequest,
 		Ch_networkConnection)
-
-
 
 	select {}
 }

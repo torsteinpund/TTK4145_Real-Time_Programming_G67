@@ -1,7 +1,6 @@
-package orderHandler
+package orders
 
 import (
-	"Driver-go/lights"
 	. "Driver-go/types"
 	"fmt"
 )
@@ -29,7 +28,7 @@ func OrderHandler(ID string,
 			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
 			if !connectedToNetwork {
 				localOrderMatrix = addOrderToLocalMatrix(orderEvent, ordersFromMaster, localOrderMatrix)
-				lights.SetLocalLights(localOrderMatrix)
+				setLocalLights(localOrderMatrix)
 				Ch_localOrders <- LocalOrder{OrderMatrix: localOrderMatrix, NetworkConnection: connectedToNetwork}
 			
 			}else{
@@ -39,13 +38,13 @@ func OrderHandler(ID string,
 			}
 
 		case ordersFromMaster = <-Ch_ordersFromMaster:
-			lights.SetAllLights(ordersFromMaster, ID)
+			setAllLights(ordersFromMaster, ID)
 			Ch_localOrders <- LocalOrder{OrderMatrix: ordersFromMaster[ID], NetworkConnection: connectedToNetwork}
 
 		case dirnFloor := <-Ch_clearedFloor:
 			if !connectedToNetwork{
 				localOrderMatrix = clearLocalOrderMatrix(dirnFloor, localOrderMatrix)
-				lights.SetLocalLights(localOrderMatrix)
+				setLocalLights(localOrderMatrix)
 			}else{
 				orders := []ButtonEvent{}
 				orders = clearFloor(dirnFloor, orders)
