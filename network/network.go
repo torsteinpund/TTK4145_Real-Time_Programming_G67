@@ -11,8 +11,8 @@ import (
 type RXChannels struct {
 	Ch_stateUpdate       chan Elevator       `addr:"rx_elevatorupdatechannel"`
 	Ch_registerOrder     chan OrderEvent     `addr:"rx_registerorderchannel"`
-	Ch_orderCopyResponse chan GlobalOrderMap `addr:"rx_ordercopyresponse"`
-	Ch_orderCopyRequest  chan bool           `addr:"rx_ordercopyrequest"`
+	//Ch_orderCopyResponse chan GlobalOrderMap `addr:"rx_ordercopyresponse"`
+	//Ch_orderCopyRequest  chan bool           `addr:"rx_ordercopyrequest"`
 	Ch_ordersFromMaster  chan GlobalOrderMap `addr:"rx_ordersfrommaster"`
 }
 
@@ -20,7 +20,7 @@ type TXChannels struct {
 	Ch_stateUpdate        chan Elevator       `addr:"tx_elevatorupdatechannel"`
 	Ch_orderEventToMaster chan OrderEvent     `addr:"tx_registerorderchannel"`
 	Ch_ordersFromMaster   chan GlobalOrderMap `addr:"tx_ordersfrommaster"`
-	Ch_orderCopyResponse  chan GlobalOrderMap `addr:"tx_ordercopyresponse"`
+	//Ch_orderCopyResponse  chan GlobalOrderMap `addr:"tx_ordercopyresponse"`
 }
 
 
@@ -83,6 +83,6 @@ func PollConnection(networkConnection chan<- bool) {
 				wasDisconnected = false
 			}
 		}
-		time.Sleep(2 * time.Second) // Poll every 5 seconds
+		time.Sleep(2 * time.Second)
 	}
 }

@@ -75,7 +75,6 @@ type Elevator struct {
 	}
 }
 
-
 func (behaviour ElevatorBehaviour) ToString() string {
 	behavList := []string{"idle", "doorOpen", "moving"}
 	return behavList[int(behaviour)]

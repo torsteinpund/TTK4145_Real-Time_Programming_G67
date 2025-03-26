@@ -11,7 +11,6 @@ func setAllLights(globalOrderMap GlobalOrderMap, ID string){
 	setCabLights(globalOrderMap[ID])
 }
 
-
 func setLocalLights(orderMatrix OrderMatrix){
 	for floor := 0; floor < NUMFLOORS; floor++ {
 		for btn := 0; btn < NUMBUTTONTYPE; btn++ {
@@ -21,12 +20,10 @@ func setLocalLights(orderMatrix OrderMatrix){
 	}
 }
 
-
 func setHallLights(globalOrderMap GlobalOrderMap) {
 	for floor := 0; floor < NUMFLOORS; floor++ {
 		for btn := 0; btn < NUMHALLBUTTONS; btn++ {
 			hasOrder := false
-			// Sjekk om noen av orderMatrixene har en bestilling for denne etasjen og knappen
 			for _, orderMatrix := range globalOrderMap {
 				if orderMatrix[floor][btn] {
 					hasOrder = true
@@ -37,7 +34,6 @@ func setHallLights(globalOrderMap GlobalOrderMap) {
 		}
 	}
 }
-
 
 func setCabLights(orderMatrix OrderMatrix) {
 	for floor := 0; floor < NUMFLOORS; floor++ {

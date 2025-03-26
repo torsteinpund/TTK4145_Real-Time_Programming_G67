@@ -35,16 +35,16 @@ func main() {
 	bcastPort := 19195
 
 
-	Ch_txEnable := make(chan bool)
-	Ch_isMaster := make(chan bool)
-	Ch_peerLost := make(chan string)
-	Ch_newPeer := make(chan string)
-	Ch_localOrders := make(chan LocalOrder)
-	Ch_clearedFloor := make(chan DirnFloorPair, 20)
-	Ch_peerUpdate := make(chan peers.PeersUpdate)
-	Ch_orderCopyResponse := make(chan GlobalOrderMap)
-	Ch_orderCopyRequest := make(chan bool)
-	Ch_networkConnection := make(chan bool)
+	Ch_txEnable 			:= make(chan bool)
+	Ch_isMaster 			:= make(chan bool)
+	Ch_peerLost 			:= make(chan string)
+	Ch_newPeer 				:= make(chan string)
+	Ch_localOrders 			:= make(chan LocalOrder)
+	Ch_clearedFloor 		:= make(chan DirnFloorPair, 20)
+	Ch_peerUpdate 			:= make(chan peers.PeersUpdate)
+	Ch_orderCopyResponse 	:= make(chan GlobalOrderMap)
+	Ch_orderCopyRequest 	:= make(chan bool)
+	Ch_networkConnection 	:= make(chan bool)
 
 
 	hardwareChannels := elevatorDriver.HardwareChannels{
@@ -58,7 +58,6 @@ func main() {
 		Ch_stateUpdate:      make(chan Elevator),
 		Ch_registerOrder:    make(chan OrderEvent),
 		Ch_ordersFromMaster: make(chan GlobalOrderMap),
-		Ch_orderCopyRequest: Ch_orderCopyRequest,
 	}
 
 	txChannels := network.TXChannels{

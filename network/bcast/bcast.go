@@ -13,8 +13,8 @@ const bufSize = 1024
 const retransmitInterval = 100 * time.Microsecond
 const retransmitCount = 10
 
-// Encodes received values from `chans` into type-tagged JSON, then broadcasts
-// it on `port`
+// Encodes received values from `chans` into type-tagged JSON, 
+// then broadcasts it on `port`
 func Transmitter(port int, chans ...interface{}) {
 	checkArgs(chans...)
 	typeNames := make([]string, len(chans))
@@ -42,7 +42,7 @@ func Transmitter(port int, chans ...interface{}) {
 		        "Either send smaller packets, or go to network/bcast/bcast.go and increase the buffer size",
 		        len(ttj), bufSize, string(ttj)))
 		}
-		// conn.WriteTo(ttj, addr)
+
 		for i := 0; i < retransmitCount; i++ {
 			conn.WriteTo(ttj, addr)
     		time.Sleep(retransmitInterval)
@@ -51,8 +51,8 @@ func Transmitter(port int, chans ...interface{}) {
 }
 
 
-// Matches type-tagged JSON received on `port` to element types of `chans`, then
-// sends the decoded value on the corresponding channel
+// Matches type-tagged JSON received on `port` to element types of `chans`, 
+// then sends the decoded value on the corresponding channel
 func Receiver(port int, chans ...interface{}) {
 	checkArgs(chans...)
 	chansMap := make(map[string]interface{})
@@ -93,9 +93,9 @@ type typeTaggedJSON struct {
 //  All args must be channels
 //  Element types of channels must be encodable with JSON
 //  No element types are repeated
-// Implementation note:
-//  - Why there is no `isMarshalable()` function in encoding/json is a mystery,
-//    so the tests on element type are hand-copied from `encoding/json/encode.go`
+//  Implementation note:
+//  	- Why there is no `isMarshalable()` function in encoding/json is a mystery,
+//    	  so the tests on element type are hand-copied from `encoding/json/encode.go`
 func checkArgs(chans ...interface{}) {
 	n := 0
 	for range chans {

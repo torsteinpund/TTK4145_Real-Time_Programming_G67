@@ -15,8 +15,8 @@ func OrderHandler(ID string,
 				  Ch_orderCopyRequest 	<-chan bool,
 				  Ch_networkConnected 	<-chan bool) {
 
-	ordersFromMaster := GlobalOrderMap{}
-	localOrderMatrix := OrderMatrix{}
+	ordersFromMaster   := GlobalOrderMap{}
+	localOrderMatrix   := OrderMatrix{}
 	connectedToNetwork := false
 
 
@@ -26,6 +26,7 @@ func OrderHandler(ID string,
 		case buttonEvent := <-Ch_buttonPress:
 			button := []ButtonEvent{buttonEvent}
 			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
+
 			if !connectedToNetwork {
 				localOrderMatrix = addOrderToLocalMatrix(orderEvent, ordersFromMaster, localOrderMatrix)
 				setLocalLights(localOrderMatrix)
@@ -73,6 +74,7 @@ func orderEventInGlobalOrderMap(orderEvent OrderEvent, globalOrderMap GlobalOrde
             if !exists {
                 return false
             }
+
             if orderEvent.Completed {
                 if elevatorOrders[order.Floor][order.Button] {
                     return false
@@ -82,6 +84,7 @@ func orderEventInGlobalOrderMap(orderEvent OrderEvent, globalOrderMap GlobalOrde
                     return false
                 }
             }
+
         } else if order.Button == ButtonType(BT_HallUp) || order.Button == ButtonType(BT_HallDown) {
             found := false
             for _, orderMatrix := range globalOrderMap {
@@ -90,7 +93,8 @@ func orderEventInGlobalOrderMap(orderEvent OrderEvent, globalOrderMap GlobalOrde
                     break
                 }
             }
-            if orderEvent.Completed {
+
+            if orderEvent.Completed && found{
                 if found {
                     return false
                 }
@@ -118,10 +122,12 @@ func addOrderToLocalMatrix(orderEvent OrderEvent, globalOrderMap GlobalOrderMap,
             }
         }
     }
+
     for _, order := range orderEvent.Orders {
         if order.Button == ButtonType(BT_Cab) {
             localOrderMatrix[order.Floor][order.Button] = true
         }
+		
         if order.Button == ButtonType(BT_HallUp) || order.Button == ButtonType(BT_HallDown) {
             localOrderMatrix[order.Floor][order.Button] = true
         }
