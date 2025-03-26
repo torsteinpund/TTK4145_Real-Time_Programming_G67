@@ -11,7 +11,7 @@ import (
 func Fsm(Ch_floorSensor <-chan int,
 	Ch_stopButton <-chan bool,
 	Ch_obstruction <-chan bool,
-	Ch_localOrders <-chan OrderMatrix,
+	Ch_localOrders <-chan LocalOrder,
 	Ch_clearedFloor chan<- DirnFloorPair,
 	Ch_stateUpdate chan<- Elevator,
 	elev Elevator) {
@@ -26,14 +26,14 @@ func Fsm(Ch_floorSensor <-chan int,
 	periodicStateUpdate := time.NewTicker(1 * time.Second)
 	elevio.SetDoorOpenLamp(false)
 	lastDirn := elev.Dirn
+	networkConnected := false
 
 
 	for {
 		select {
 		case receivedOrder := <-Ch_localOrders:
-			orderMatrix = receivedOrder
-			// fmt.Println("Ordermatrix received: ", orderMatrix)
-			fmt.Println()
+			orderMatrix = receivedOrder.OrderMatrix
+			networkConnected = receivedOrder.NetworkConnection
 			switch elev.Behaviour {
 			case EB_Idle:
 				if requests.RequestsHere(orderMatrix, elev.Floor) {
@@ -80,7 +80,10 @@ func Fsm(Ch_floorSensor <-chan int,
 				errorTimeout.Stop()
 			}
 			elev.Available = true
-			Ch_stateUpdate <- elev
+			if networkConnected{
+				Ch_stateUpdate <- elev
+			}
+			
 
 		case <-doorOpenCh:
 			elev.Behaviour = EB_DoorOpen
@@ -89,9 +92,7 @@ func Fsm(Ch_floorSensor <-chan int,
 			elevio.SetDoorOpenLamp(true)
 			doorClose.Reset(3 * time.Second)
 			errorTimeout.Stop()
-			fmt.Println("Before clearing: ", orderMatrix)
 			orderMatrix, lastDirn = requests.RequestsClearAtCurrentFloor(orderMatrix, elev, lastDirn)
-			fmt.Println("After clearing: ", orderMatrix)
 			Ch_clearedFloor <- DirnFloorPair{Dirn: lastDirn, Floor: elev.Floor}
 			fmt.Println("Sent cleared floor")
 
@@ -143,20 +144,26 @@ func Fsm(Ch_floorSensor <-chan int,
 			}
 
 		case <-periodicStateUpdate.C:
-			periodicStateUpdate.Stop()
-			Ch_stateUpdate <- elev
+			// periodicStateUpdate.Stop()
+			if networkConnected{
+				Ch_stateUpdate <- elev
+			}
+			
 			periodicStateUpdate.Reset(1 * time.Second)
 
 
 		case <-errorTimeout.C:
 			fmt.Println("Error timeout!Elevator behav: ", elev.Behaviour, "elevID: ", elev.ID)
 			elev.Available = false
-			Ch_stateUpdate <- elev
+			if networkConnected{
+				Ch_stateUpdate <- elev
+			}
+			
 			elev.Behaviour, elev.Dirn = elevio.InitBetweenFloors()
 			elev.Available = true
-			Ch_stateUpdate <- elev
-
-
+			if networkConnected{
+				Ch_stateUpdate <- elev
+			}
 
 		default:
 			if (elev.Behaviour == EB_Idle || elev.Behaviour == EB_Moving) && elev.Available {

@@ -85,7 +85,10 @@ type Elevator struct {
 	}
 }
 
-
+type LocalOrder struct {
+	OrderMatrix 		OrderMatrix
+	NetworkConnection 	bool 
+}
 
 
 func (behaviour ElevatorBehaviour) ToString() string {

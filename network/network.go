@@ -5,6 +5,7 @@ import (
 	. "Driver-go/types"
 	"strings"
 	"fmt"
+	"time"
 )
 
 type RXChannels struct {
@@ -56,4 +57,32 @@ func getLocalIP() (string, error) {
 		localIP = strings.Split(conn.LocalAddr().String(), ":")[0]
 	}
 	return localIP, nil
+}
+
+
+
+
+func checkConnection() bool {
+	_, err := getLocalIP()
+	return err == nil
+}
+
+func PollConnection(networkConnection chan<- bool) {
+	var wasDisconnected bool
+	networkConnection <- checkConnection()
+	fmt.Println()
+	for {
+		if !checkConnection() {
+			if !wasDisconnected {
+				networkConnection <- false
+				wasDisconnected = true
+			}
+		} else {
+			if wasDisconnected {
+				networkConnection <- true
+				wasDisconnected = false
+			}
+		}
+		time.Sleep(2 * time.Second) // Poll every 5 seconds
+	}
 }

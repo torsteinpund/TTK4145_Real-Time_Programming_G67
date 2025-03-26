@@ -20,7 +20,7 @@ func main() {
 	var id string
 	var port string
 	flag.StringVar(&id, "id", "", "The ID of the elevator")
-	flag.StringVar(&port, "port", "19091", "The port for the elevator hardware connection")
+	flag.StringVar(&port, "port", "19191", "The port for the elevator hardware connection")
 
 	// Standard port is 15657
 	// Parse command-line flags
@@ -35,7 +35,7 @@ func main() {
 	fmt.Println("Port: ", port)
 
 	peerDetectionPort := 18195
-	bcastPort := 19196
+	bcastPort := 19195
 
 	// id := network.SetID()
 
@@ -43,11 +43,15 @@ func main() {
 	Ch_isMaster := make(chan bool)
 	Ch_peerLost := make(chan string)
 	Ch_newPeer := make(chan string)
-	Ch_localOrders := make(chan OrderMatrix)
+	Ch_localOrders := make(chan LocalOrder)
 	Ch_clearedFloor := make(chan DirnFloorPair, 20)
 	Ch_peerUpdate := make(chan peers.PeersUpdate)
 	Ch_orderCopyResponse := make(chan GlobalOrderMap)
 	Ch_orderCopyRequest := make(chan bool)
+	Ch_networkConnection := make(chan bool)
+	// Ch_networkToFSM := make(chan bool)
+
+
 
 	hardwareChannels := elevio.HardwareChannels{
 		Ch_buttonPress: make(chan ButtonEvent),
@@ -88,11 +92,13 @@ func main() {
 		txChannels.Ch_stateUpdate,
 		txChannels.Ch_orderEventToMaster,
 		txChannels.Ch_ordersFromMaster)
-
+		
 	go bcast.Receiver(bcastPort,
 		rxChannels.Ch_stateUpdate,
 		rxChannels.Ch_registerOrder,
 		rxChannels.Ch_ordersFromMaster)
+
+	go network.PollConnection(Ch_networkConnection)
 
 	go master.Master(elevator.ID,
 		Ch_isMaster,
@@ -119,7 +125,10 @@ func main() {
 		hardwareChannels.Ch_buttonPress,
 		Ch_clearedFloor,
 		rxChannels.Ch_ordersFromMaster,
-		Ch_orderCopyRequest)
+		Ch_orderCopyRequest,
+		Ch_networkConnection)
+
+
 
 	select {}
 }

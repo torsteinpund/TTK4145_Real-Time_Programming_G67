@@ -30,7 +30,7 @@ func (pH *PeerHandler) PeerHandler(id string,
 	Ch_isMaster chan<- bool) {
 
 
-	timeout := time.After(250 *time.Millisecond)
+	timeout := time.After(100 *time.Millisecond)
 	existingPeers := make(map[string]peers.Peer)
 	currentMasterID := ""
 	masters := make(map[string]peers.Peer)
@@ -40,6 +40,7 @@ func (pH *PeerHandler) PeerHandler(id string,
 	for {
 		select {
 		case update := <-Ch_peerUpdate:
+
 			for _, peerID := range update.PeersID {
 				existingPeers[peerID] = peers.Peer{ID: peerID}
 			}
@@ -51,7 +52,7 @@ func (pH *PeerHandler) PeerHandler(id string,
 	
 	masterUpdate := make(chan string)
 	masterHbPort := 14343
-
+	fmt.Println("Existing peers ", existingPeers)
 	if len(existingPeers) == 1{
 		fmt.Println("I am the first peer in this bitch")
 		go StartMasterHeartbeat(id,masterHbPort)
@@ -109,8 +110,10 @@ func (pH *PeerHandler) PeerHandler(id string,
 				fmt.Println("Updated master, the new master is ", masterID)
 				currentMasterID = masterID
 				if len(masters) > 1 {
+					fmt.Println("I am no longer the master")
 					masters = make(map[string]peers.Peer)
 					currentMasterID = updateMaster(pH.activePeers)
+					fmt.Println("The new master is ", currentMasterID)
 					masters[currentMasterID] = peers.Peer{ID: currentMasterID}
 				}
 			}
@@ -144,7 +147,9 @@ func (pH *PeerHandler) updatePeers(update peers.PeersUpdate, ownID string) (stri
 
 
 func updateMaster(activePeers map[string]peers.Peer) string {
-
+	if len(activePeers) == 0{
+		return ""
+	}
 	peers := []int{}
 	for _, peer := range activePeers {
 		// parts := strings.Split(peer.ID, ".")
@@ -166,8 +171,6 @@ func updateMaster(activePeers map[string]peers.Peer) string {
 	currentMasterID := strconv.Itoa(peers[0])
 	return currentMasterID
 }
-
-
 
 
 
@@ -212,7 +215,7 @@ func StartMasterReceiver(port int, ch_masterUpdate chan<- string) {
         select {
         case heartbeat := <-ch_heartbeat:
             // Oppdater siste heartbeat tid
-			fmt.Println("MasterIdMottatt: ",heartbeat.MasterID)
+			// fmt.Println("MasterIdMottatt: ",heartbeat.MasterID)
             lastHeartbeat = time.Now()
             ch_masterUpdate <- heartbeat.MasterID
 

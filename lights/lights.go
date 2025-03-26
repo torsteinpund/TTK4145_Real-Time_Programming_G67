@@ -3,37 +3,41 @@ package lights
 import (
 	"Driver-go/singleElevatorDriver/elevio"
 	. "Driver-go/types"
-	// "time"
-	// "fmt"
 )
 
 
-func SetLights(globalOrderMap GlobalOrderMap, ID string){
+func SetAllLights(globalOrderMap GlobalOrderMap, ID string){
 	setHallLights(globalOrderMap)
 	setCabLights(globalOrderMap[ID])
 }
 
 
-
-func setHallLights(globalOrderMap GlobalOrderMap) {
-	emptyOrderMatrix := OrderMatrix{}
-    for _, orderMatrix := range globalOrderMap {
-		for floor := 0; floor < NUMFLOORS; floor++ {
-			for btn := 0; btn < NUMHALLBUTTONS; btn++ {
-				if orderMatrix[floor][btn] {
-					emptyOrderMatrix[floor][btn] = true
-
-				}
-			}
-		}
-	}
+func SetLocalLights(orderMatrix OrderMatrix){
 	for floor := 0; floor < NUMFLOORS; floor++ {
-		for btn := 0; btn < NUMHALLBUTTONS; btn++ {
-			state := emptyOrderMatrix[floor][btn]
+		for btn := 0; btn < NUMBUTTONTYPE; btn++ {
+			state := orderMatrix[floor][btn]
 			elevio.SetButtonLamp(ButtonType(btn), floor, state)
 		}
 	}
 }
+
+
+func setHallLights(globalOrderMap GlobalOrderMap) {
+	for floor := 0; floor < NUMFLOORS; floor++ {
+		for btn := 0; btn < NUMHALLBUTTONS; btn++ {
+			hasOrder := false
+			// Sjekk om noen av orderMatrixene har en bestilling for denne etasjen og knappen
+			for _, orderMatrix := range globalOrderMap {
+				if orderMatrix[floor][btn] {
+					hasOrder = true
+					break
+				}
+			}
+			elevio.SetButtonLamp(ButtonType(btn), floor, hasOrder)
+		}
+	}
+}
+
 
 func setCabLights(orderMatrix OrderMatrix) {
 	for floor := 0; floor < NUMFLOORS; floor++ {
