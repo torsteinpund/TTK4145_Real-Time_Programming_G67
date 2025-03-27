@@ -53,7 +53,7 @@ func Master(ID string,
 			elevator, exist := allElevatorStates[lostPeer]
 			fmt.Println("Houston, we have a problem! Master has lost a peer")
 			if !exist {
-				elevator = StateSingleElevator{}
+				elevator = unitializedSingleStateElevator()
 				elevator.Available = false
 				allElevatorStates[lostPeer] = elevator
 			} else {
@@ -151,12 +151,13 @@ func Master(ID string,
 
 		case orderCopy := <-Ch_newMasterOrderCopy:
 			fmt.Println("New master has received an order copy response", orderCopy)
-			updateAllElevators(hallOrders, orderCopy, allElevatorStates)
+			allElevatorStates, hallOrders = updateAllElevators(hallOrders, orderCopy, allElevatorStates)
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 			Ch_ordersFromMaster <- updatedOrders
 		}
 	}
 }
+
 
 func reAssignOrders(hallOrders HallOrders, allElevatorStates map[string]StateSingleElevator) GlobalOrderMap {
 	unavailableElevators  := []string{}
@@ -192,6 +193,7 @@ func reAssignOrders(hallOrders HallOrders, allElevatorStates map[string]StateSin
 
 	return globOrderMap
 }
+
 
 func updateAllElevators(hallOrders HallOrders, orderCopy GlobalOrderMap, allElevatorStates map[string]StateSingleElevator) (map[string]StateSingleElevator, HallOrders){
 	for elevatorID, orderMatrix := range orderCopy {

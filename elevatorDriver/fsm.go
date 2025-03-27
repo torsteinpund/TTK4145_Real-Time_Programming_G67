@@ -158,6 +158,7 @@ func Fsm(Ch_floorSensor  <-chan int,
 		case <-errorTimeout.C:
 			errorTimeout.Stop()
 			fmt.Println("Error timeout! Elevator behav: ", elev.Behaviour, "elevID: ", elev.ID, "elevFloor: ", elev.Floor)
+			setDoorOpenLamp(false)
 			elev.Available = false
 			if networkConnected {
 				Ch_stateUpdate <- elev
