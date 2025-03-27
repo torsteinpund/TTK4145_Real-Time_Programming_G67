@@ -25,6 +25,7 @@ func Fsm(Ch_floorSensor  <-chan int,
 	errorTimeout 		 := time.NewTimer(5 * time.Second)
 	periodicStateUpdate  := time.NewTimer(1 * time.Second)
 	doorClose.Stop()
+	errorTimeout.Stop()
 	setDoorOpenLamp(false)
 
 	for {
@@ -38,6 +39,10 @@ func Fsm(Ch_floorSensor  <-chan int,
 					doorOpenCh <- true
 					break
 				}
+				if !emptyOrderMatrix(orderMatrix){
+					errorTimeout.Reset(5 *time.Second)
+				}
+
 
 			case EB_Moving:
 				break
@@ -91,13 +96,14 @@ func Fsm(Ch_floorSensor  <-chan int,
 			setMotorDirection(MD_Stop)
 			setDoorOpenLamp(true)
 			doorClose.Reset(3 * time.Second)
-			errorTimeout.Stop()
+			errorTimeout.Reset(5 * time.Second)
 			orderMatrix, lastDirn = clearOrderAtCurrentFloor(orderMatrix, elev.Floor, lastDirn)
 			Ch_clearedFloor <- DirnFloorPair{Dirn: lastDirn, Floor: elev.Floor}
 
 		case <-doorClose.C:
 			if obstructionActive {
 				doorClose.Reset(3 * time.Second)
+				errorTimeout.Reset(5 * time.Second)
 				break
 			}
 
@@ -150,14 +156,19 @@ func Fsm(Ch_floorSensor  <-chan int,
 			periodicStateUpdate.Reset(1 * time.Second)
 
 		case <-errorTimeout.C:
-			fmt.Println("Error timeout!Elevator behav: ", elev.Behaviour, "elevID: ", elev.ID)
+			errorTimeout.Stop()
+			fmt.Println("Error timeout! Elevator behav: ", elev.Behaviour, "elevID: ", elev.ID, "elevFloor: ", elev.Floor)
 			elev.Available = false
 			if networkConnected {
 				Ch_stateUpdate <- elev
 			}
 
-			elev.Behaviour, elev.Dirn = initBetweenFloors()
+			elev.Floor, elev.Behaviour = initAfterErrorTimeout(elev.Dirn, Ch_localOrders, orderMatrix, elev.Behaviour)
+			fmt.Println("Timeout routine done")
 			elev.Available = true
+			if(orderMatrix[elev.Floor][BT_Cab]){
+				doorOpenCh<-true
+			}
 			if networkConnected {
 				Ch_stateUpdate <- elev
 			}
@@ -194,3 +205,5 @@ func Fsm(Ch_floorSensor  <-chan int,
 		}
 	}
 }
+
+

@@ -28,9 +28,11 @@ func OrderHandler(ID string,
 			orderEvent := OrderEvent{ElevatorID: ID, Completed: false, Orders: button}
 
 			if !connectedToNetwork {
-				localOrderMatrix = addOrderToLocalMatrix(orderEvent, ordersFromMaster, localOrderMatrix)
+				fmt.Println("Disconnected from Network")
+				localOrderMatrix, ordersFromMaster = addOrderToLocalMatrix(orderEvent, ordersFromMaster, localOrderMatrix)
 				setLocalLights(localOrderMatrix)
 				Ch_localOrders <- LocalOrder{OrderMatrix: localOrderMatrix, NetworkConnection: connectedToNetwork}
+				fmt.Println("Localorders: ", localOrderMatrix)
 			
 			}else{
 				if !orderEventInGlobalOrderMap(orderEvent, ordersFromMaster) {
@@ -46,12 +48,13 @@ func OrderHandler(ID string,
 			if !connectedToNetwork{
 				localOrderMatrix = clearLocalOrderMatrix(dirnFloor, localOrderMatrix)
 				setLocalLights(localOrderMatrix)
-			}else{
-				orders := []ButtonEvent{}
-				orders = clearFloor(dirnFloor, orders)
-				finishedOrder := OrderEvent{ElevatorID: ID, Completed: true, Orders: orders}
-				Ch_orderEventToMaster <- finishedOrder
-			}
+				}else{
+					orders := []ButtonEvent{}
+					orders = clearFloor(dirnFloor, orders)
+					finishedOrder := OrderEvent{ElevatorID: ID, Completed: true, Orders: orders}
+					Ch_orderEventToMaster <- finishedOrder
+				}
+
 
 		case <-Ch_orderCopyRequest:
 			fmt.Println("Sender order copy response til master:", ordersFromMaster)
@@ -108,7 +111,7 @@ func orderEventInGlobalOrderMap(orderEvent OrderEvent, globalOrderMap GlobalOrde
     return true
 }
 
-func addOrderToLocalMatrix(orderEvent OrderEvent, globalOrderMap GlobalOrderMap, localOrderMatrix OrderMatrix) OrderMatrix {
+func addOrderToLocalMatrix(orderEvent OrderEvent, globalOrderMap GlobalOrderMap, localOrderMatrix OrderMatrix) (OrderMatrix, GlobalOrderMap) {
 
     elevatorOrders, exists := globalOrderMap[orderEvent.ElevatorID]
     if !exists {
@@ -118,6 +121,7 @@ func addOrderToLocalMatrix(orderEvent OrderEvent, globalOrderMap GlobalOrderMap,
     for floor, buttonMap := range elevatorOrders {
         for button, isOrder := range buttonMap {
             if button == int(BT_Cab) && isOrder {
+				elevatorOrders[floor][button] = false
                 localOrderMatrix[floor][button] = true
             }
         }
@@ -133,7 +137,9 @@ func addOrderToLocalMatrix(orderEvent OrderEvent, globalOrderMap GlobalOrderMap,
         }
     }
 
-    return localOrderMatrix
+	globalOrderMap[orderEvent.ElevatorID] = elevatorOrders
+
+    return localOrderMatrix, globalOrderMap
 }
 
 

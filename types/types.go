@@ -84,3 +84,4 @@ func (dirn MotorDirection) ToString() string {
 	dirnList := []string{"down", "stop", "up"}
 	return dirnList[dirn+1]
 }
+

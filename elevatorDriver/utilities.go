@@ -125,3 +125,27 @@ func emptyOrderMatrix(orderMatrix OrderMatrix) bool {
 	}
 	return true
 }
+
+func initAfterErrorTimeout(dirn MotorDirection, ch_localorders <-chan LocalOrder, orderMatrix OrderMatrix, elevBehaviour ElevatorBehaviour)(int, ElevatorBehaviour){
+	setMotorDirection(dirn)
+	var floor int
+	timeOutLoop:
+	for{
+		select{
+		case <-ch_localorders: 
+		//Ensures draining of orderHandler
+		
+		default:
+			if getFloor()!=-1 {
+				floor = getFloor()
+				if emptyOrderMatrix(orderMatrix){
+					setMotorDirection(MD_Stop)
+					elevBehaviour = EB_Idle
+				}
+				break timeOutLoop
+			}
+		}
+	}
+	return floor, elevBehaviour
+}
+

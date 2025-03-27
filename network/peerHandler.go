@@ -29,12 +29,10 @@
 // 	Ch_newPeer chan<- string,
 // 	Ch_isMaster chan<- bool) {
 
-
 // 	timeout := time.After(100 *time.Millisecond)
 // 	existingPeers := make(map[string]peers.Peer)
 // 	currentMasterID := ""
 // 	masters := make(map[string]peers.Peer)
-
 
 // 	aloneOnNetworkLoop:
 // 	for {
@@ -49,7 +47,6 @@
 // 		}
 // 	}
 
-	
 // 	masterUpdate := make(chan string)
 // 	masterHbPort := 14343
 // 	fmt.Println("Existing peers ", existingPeers)
@@ -60,7 +57,7 @@
 // 		Ch_newPeer <- id
 // 		currentMasterID = id
 // 		masters[currentMasterID] = peers.Peer{ID: currentMasterID}
-		
+
 // 	}else{
 // 		fmt.Println("Found existing peers...")
 // 		Ch_isMaster <- false
@@ -92,7 +89,7 @@
 // 					delete(pH.activePeers,peerID)
 // 					fmt.Println("Peer lost:", peerID)
 // 				}
-				
+
 // 			}else if peerstatus == 	"newPeer" {
 // 				if currentMasterID == id {
 // 					Ch_isMaster <- true
@@ -101,7 +98,7 @@
 // 					Ch_isMaster <- false
 // 				}
 // 				pH.activePeers[peerID] = peers.Peer{ID: peerID}
-			
+
 // 				}
 // 		case masterID := <-masterUpdate:
 // 			if masterID == "" {
@@ -120,7 +117,6 @@
 // 		}
 // 	}
 // }
-
 
 // func (pH *PeerHandler) updatePeers(update peers.PeersUpdate, ownID string) (string, string) {
 // 	// Updates activePeers
@@ -145,7 +141,6 @@
 
 // }
 
-
 // func updateMaster(activePeers map[string]peers.Peer) string {
 // 	if len(activePeers) == 0{
 // 		return ""
@@ -165,21 +160,17 @@
 // 	return currentMasterID
 // }
 
-
-
 // type masterHeartBeat struct {
 // 	masterID string `json:"masterID"`
 // 	timestamp int64 `json:"timestamp"`
 // }
 
-
 // func startMasterHeartbeat(masterID string, port int) {
 //     ch_heartbeat := make(chan masterHeartBeat)
 
- 
 //     go bcast.Transmitter(port, ch_heartbeat)
 
-//     ticker := time.NewTicker(500 * time.Millisecond) 
+//     ticker := time.NewTicker(500 * time.Millisecond)
 //     defer ticker.Stop()
 
 //     for {
@@ -189,7 +180,7 @@
 //                 masterID:  masterID,
 //                 timestamp: time.Now().UnixNano(),
 //             }
-  
+
 //             ch_heartbeat <- heartbeat
 //         }
 //     }
@@ -219,32 +210,28 @@
 //     }
 // }
 
-
-
-
 package network
 
 import (
+	// "Driver-go/master"
+	"Driver-go/network/bcast"
 	"Driver-go/network/peers"
 	"fmt"
 	"sort"
 	"strconv"
 	"time"
-	"Driver-go/network/bcast"
-
 )
 
 
 func PeerHandler(id string,
-	Ch_RX RXChannels,
-	Ch_peerUpdate <-chan peers.PeersUpdate,
-	Ch_peerLost chan<- string,
-	Ch_newPeer chan<- string,
-	Ch_isMaster chan<- bool) {
+				 Ch_RX RXChannels,
+				 Ch_peerUpdate <-chan peers.PeersUpdate,
+				 Ch_peerLost chan<- string,
+				 Ch_newPeer chan<- string,
+				 Ch_isMaster chan<- bool) {
 
+	timeout := time.After(250 *time.Millisecond)
 	activePeers := make(map[string]peers.Peer)
-	timeout := time.After(100 *time.Millisecond)
-	existingPeers := make(map[string]peers.Peer)
 	currentMasterID := ""
 	masters := make(map[string]peers.Peer)
 
@@ -255,7 +242,7 @@ func PeerHandler(id string,
 		case update := <-Ch_peerUpdate:
 
 			for _, peerID := range update.PeersID {
-				existingPeers[peerID] = peers.Peer{ID: peerID}
+				activePeers[peerID] = peers.Peer{ID: peerID}
 			}
 		case <-timeout:
 			break aloneOnNetworkLoop
@@ -265,10 +252,12 @@ func PeerHandler(id string,
 	
 	masterUpdate := make(chan string)
 	masterHbPort := 14343
-	fmt.Println("Existing peers ", existingPeers)
-	if len(existingPeers) == 1{
-		fmt.Println("I am the first peer in this bitch")
-		go startMasterHeartbeat(id,masterHbPort)
+
+	fmt.Println("Active peers ", activePeers)
+
+	if len(activePeers) == 1{
+		fmt.Println("I am the first peer")
+		go startMasterHeartbeat(id, masterHbPort)
 		Ch_isMaster <- true
 		Ch_newPeer <- id
 		currentMasterID = id
@@ -280,13 +269,15 @@ func PeerHandler(id string,
 	}
 
 	go startMasterReceiver(masterHbPort, masterUpdate)
-	activePeers = existingPeers
+	
 	
 	for{
 		select{
 		case update := <- Ch_peerUpdate:
 			activePeers, peerstatus, peerID := updatePeers(activePeers, update, id)
-			if peerstatus == "lostPeer" {
+			switch peerstatus{
+			case "lostPeer":
+				fmt.Println("Peer lost:", peerID)
 				if peerID == currentMasterID {
 					currentMasterID = updateMaster(activePeers)
 					if currentMasterID == id {
@@ -297,25 +288,61 @@ func PeerHandler(id string,
 					} else {
 						Ch_isMaster <- false
 					}
-					delete(activePeers, peerID)
 				}else{
 					if currentMasterID == id{
 						Ch_peerLost <- peerID
 					}
-					delete(activePeers, peerID)
-					fmt.Println("Peer lost:", peerID)
 				}
-				
-			}else if peerstatus == 	"newPeer" {
+
+			case "newPeer":
 				if currentMasterID == id {
 					Ch_isMaster <- true
 					Ch_newPeer <- peerID
 				} else {
 					Ch_isMaster <- false
 				}
-				activePeers[peerID] = peers.Peer{ID: peerID}
-			
+
+			case "backOnNet":
+				timeout := time.After(1 * time.Second)
+				gettingBackOnNet:
+					for {
+						select {
+						case update := <-Ch_peerUpdate:
+
+							for _, peerID := range update.PeersID {
+								activePeers[peerID] = peers.Peer{ID: peerID}
+							}
+						case masterID := <-masterUpdate:
+							currentMasterID = masterID
+
+						case <-timeout:
+							break gettingBackOnNet
+						}
+					}
+	
+				if currentMasterID == "" {
+					currentMasterID = updateMaster(activePeers)
+					if id == currentMasterID{
+						fmt.Println("I am once again becoming master")
+						go startMasterHeartbeat(id,masterHbPort)
+						Ch_isMaster <- true
+						Ch_newPeer <- id
+						currentMasterID = id
+						masters[currentMasterID] = peers.Peer{ID: currentMasterID}
+					}else{
+						fmt.Println("Becoming slave after backOnNet")
+						Ch_isMaster <- false
+					}
+					
+					
+				}else{
+					fmt.Println("Found existing peers...")
+					Ch_isMaster <- false
 				}
+
+			}
+
+
 		case masterID := <-masterUpdate:
 			if masterID == "" {
 				currentMasterID = updateMaster(activePeers)
@@ -338,12 +365,15 @@ func PeerHandler(id string,
 func updatePeers(activePeers map[string]peers.Peer,update peers.PeersUpdate, ownID string) (map[string]peers.Peer, string, string) {
 	// Updates activePeers
 	fmt.Println("Updating peers")
+	fmt.Println("Active Peers: ", activePeers)
 	changedAllPeers := ""
 	peerID := ""
 	if update.New != "" {
 		activePeers[update.New] = peers.Peer{ID: update.New}
 		if update.New != ownID {
 			changedAllPeers, peerID = "newPeer", update.New
+		}else{
+			changedAllPeers, peerID = "backOnNet", update.New
 		}
 	}
 	// Removes lost peers
@@ -354,6 +384,7 @@ func updatePeers(activePeers map[string]peers.Peer,update peers.PeersUpdate, own
 			changedAllPeers, peerID = "lostPeer", lostID
 		}
 	}
+	fmt.Println("activepeers after cleanup: ", activePeers, "ChangedPeers: ",changedAllPeers)
 	return activePeers, changedAllPeers, peerID
 
 }
@@ -392,7 +423,7 @@ func startMasterHeartbeat(masterID string, port int) {
  
     go bcast.Transmitter(port, ch_heartbeat)
 
-    ticker := time.NewTicker(500 * time.Millisecond) 
+    ticker := time.NewTicker(100 * time.Millisecond) 
     defer ticker.Stop()
 
     for {
