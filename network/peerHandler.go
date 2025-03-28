@@ -66,27 +66,20 @@ func PeerHandler(id string,
 				fmt.Println("Peer lost: ", peerID)
 				if peerID == currentMasterID {
 					currentMasterID = updateMaster(activePeers)
-					fmt.Println("New master ", id)
 					if currentMasterID == id {
 						Ch_isMaster <- true
 						Ch_peerLost <-peerID
-
-						if ch_currentStop != nil {
-							close(ch_currentStop)
-						}
-
-						ch_currentStop = make(chan struct{})
-						go startMasterHeartbeat(id, masterHbPort, ch_currentStop)
+						ch_currentStop = restartHeartbeat(id, masterHbPort, ch_currentStop)
 
 					} else {
 						Ch_isMaster <- false
 					}
 
 				} else { 
-					fmt.Println("Lostpeer, in the else case ", currentMasterID)
 					if currentMasterID == id{
 						Ch_isMaster <- true
 						Ch_peerLost <- peerID
+						ch_currentStop = restartHeartbeat(id, masterHbPort, ch_currentStop)
 					}
 				}
 
@@ -199,6 +192,16 @@ func updateMaster(activePeers map[string]peers.Peer) string {
 	sort.Ints(peers)
 	currentMasterID := strconv.Itoa(peers[0])
 	return currentMasterID
+}
+
+
+func restartHeartbeat(id string, masterHbPort int, currentStop chan struct{}) chan struct{} {
+    if currentStop != nil {
+        close(currentStop)
+    }
+    newStop := make(chan struct{})
+    go startMasterHeartbeat(id, masterHbPort, newStop)
+    return newStop
 }
 
 
