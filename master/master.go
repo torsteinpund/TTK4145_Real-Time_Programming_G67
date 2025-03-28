@@ -72,7 +72,6 @@ func Master(ID string,
 			elevatorID := newOrderEvent.ElevatorID
 			_, exist := allElevatorStates[elevatorID]
 			if !exist {
-				println("M: No client with ID: ", elevatorID)
 				break
 			}
 
