@@ -60,7 +60,6 @@ func OrderHandler(ID string,
 		case networkStatus := <-Ch_networkConnected:
 			connectedToNetwork = networkStatus
 		}
-
 	}
 }
 
@@ -102,7 +101,6 @@ func orderEventInGlobalOrderMap(orderEvent OrderEvent, globalOrderMap GlobalOrde
                     return false
                 }
             }
-
 		}
     }
     return true

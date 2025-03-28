@@ -170,7 +170,6 @@ func updatePeers(activePeers map[string]peers.Peer,update peers.PeersUpdate, own
 	}
 
 	return activePeers, changedAllPeers, peerID
-
 }
 
 

@@ -8,9 +8,9 @@ import (
 )
 
 type RXChannels struct {
-	Ch_stateUpdate      chan Elevator       `addr:"rx_elevatorupdatechannel"`
-	Ch_registerOrder    chan OrderEvent     `addr:"rx_registerorderchannel"`
-	Ch_ordersFromMaster chan GlobalOrderMap `addr:"rx_ordersfrommaster"`
+	Ch_stateUpdate        chan Elevator       `addr:"rx_elevatorupdatechannel"`
+	Ch_registerOrder      chan OrderEvent     `addr:"rx_registerorderchannel"`
+	Ch_ordersFromMaster   chan GlobalOrderMap `addr:"rx_ordersfrommaster"`
 }
 
 type TXChannels struct {

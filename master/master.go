@@ -28,7 +28,7 @@ func Master(ID string,
 			Ch_ordersFromMaster   chan<- GlobalOrderMap,
 			Ch_registerOrder 	  <-chan OrderEvent,
 			Ch_stateUpdate 		  <-chan Elevator,
-			Ch_globalOrderCopy <-chan GlobalOrderMap,
+			Ch_globalOrderCopy    <-chan GlobalOrderMap,
 			Ch_orderCopyRequest   chan<- bool,
 			Ch_newPeer 			  <-chan string) {
 
