@@ -85,6 +85,7 @@ func PeerHandler(id string,
 				} else { 
 					fmt.Println("Lostpeer, in the else case ", currentMasterID)
 					if currentMasterID == id{
+						Ch_isMaster <- true
 						Ch_peerLost <- peerID
 					}
 				}
@@ -148,7 +149,6 @@ func PeerHandler(id string,
 					}
 				}
 			} else {
-				fmt.Println("Inside the last else ", masterID)
 				currentMasterID = masterID
 			}
 		}
