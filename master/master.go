@@ -16,20 +16,11 @@ type StateSingleElevator struct {
 	CabOrders         [NUMFLOORS]bool `json:"cabRequests"`
 }
 
-func unitializedSingleStateElevator() StateSingleElevator {
-	return StateSingleElevator{
-		ElevatorBehaviour: "idle",
-		Floor:             1,
-		Direction:         "stop",
-		Available:         true,
-		CabOrders:         [NUMFLOORS]bool{},
-	}
-}
-
 type AllElevators struct {
 	GlobalOrders	  HallOrders		 			 `json:"hallRequests"`
 	AllElevatorStates map[string]StateSingleElevator `json:"states"`
 }
+
 
 func Master(ID string,
 			Ch_isMaster           <-chan bool,
@@ -37,14 +28,14 @@ func Master(ID string,
 			Ch_ordersFromMaster   chan<- GlobalOrderMap,
 			Ch_registerOrder 	  <-chan OrderEvent,
 			Ch_stateUpdate 		  <-chan Elevator,
-			Ch_newMasterOrderCopy <-chan GlobalOrderMap,
+			Ch_globalOrderCopy <-chan GlobalOrderMap,
 			Ch_orderCopyRequest   chan<- bool,
 			Ch_newPeer 			  <-chan string) {
 
-	fmt.Println("Running master...")
+	fmt.Println("Master Started!")
 	allElevatorStates 	:= map[string]StateSingleElevator{}
 	hallOrders 			:= HallOrders{}
-	lastGlobaleOrderMap := GlobalOrderMap{}
+	lastGlobalOrderMap := GlobalOrderMap{}
 
 	for {
 		select {
@@ -62,7 +53,7 @@ func Master(ID string,
 			}
 			
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
-			lastGlobaleOrderMap = updatedOrders
+			lastGlobalOrderMap = updatedOrders
 			Ch_ordersFromMaster <- updatedOrders
 
 		case newPeer := <-Ch_newPeer:
@@ -84,6 +75,7 @@ func Master(ID string,
 				println("M: No client with ID: ", elevatorID)
 				break
 			}
+
 			for _, order := range newOrderEvent.Orders {
 				switch order.Button {
 				case BT_HallUp:
@@ -100,16 +92,14 @@ func Master(ID string,
 			}
 
 			updatedGlobalOrders := reAssignOrders(hallOrders, allElevatorStates)
-			lastGlobaleOrderMap = updatedGlobalOrders
+			lastGlobalOrderMap = updatedGlobalOrders
 			Ch_ordersFromMaster <- updatedGlobalOrders
 
 		case masterCheck := <-Ch_isMaster:
-			fmt.Println("Master has received a check if master")
 			if masterCheck {
 				Ch_orderCopyRequest <- true
 			} else {
-				fmt.Println("Mayday, Mayday. Getting sucked into the matrix: " + ID + " is getting ready to work for free")
-				stuckInTheMatrix:
+				slaveLoop:
 				for {
 					select {
 					case masterCheck := <-Ch_isMaster:
@@ -117,40 +107,40 @@ func Master(ID string,
 							Ch_orderCopyRequest <- true
 							time.Sleep(500 * time.Millisecond)
 							fmt.Println("Master waking up")
-							break stuckInTheMatrix
+							break slaveLoop
 						}
 
 					case <-Ch_registerOrder:
 					case <-Ch_stateUpdate:
-					case <-Ch_newMasterOrderCopy:
+					case <-Ch_globalOrderCopy:
+						// Ensures draining of channels
 					}
 				}
 			}
 
-		case state := <-Ch_stateUpdate:
-			elevator, exist := allElevatorStates[state.ID]
+		case newState := <-Ch_stateUpdate:
+			elevator, exist := allElevatorStates[newState.ID]
 			cabOrders := [NUMFLOORS]bool{}
 
 			if exist {
 				cabOrders = elevator.CabOrders
 			}
 
-			allElevatorStates[state.ID] = StateSingleElevator{
-				state.Behaviour.ToString(),
-				state.Floor,
-				state.Dirn.ToString(),
-				state.Available,
+			allElevatorStates[newState.ID] = StateSingleElevator{
+				newState.Behaviour.ToString(),
+				newState.Floor,
+				newState.Dirn.ToString(),
+				newState.Available,
 				cabOrders}
 
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 
-			if checkIfUpdatedGlobalOrderMap(updatedOrders, lastGlobaleOrderMap) {
-				lastGlobaleOrderMap = updatedOrders
+			if checkIfUpdatedGlobalOrderMap(updatedOrders, lastGlobalOrderMap) {
+				lastGlobalOrderMap = updatedOrders
 				Ch_ordersFromMaster <- updatedOrders
 			}
 
-		case orderCopy := <-Ch_newMasterOrderCopy:
-			fmt.Println("New master has received an order copy response", orderCopy)
+		case orderCopy := <-Ch_globalOrderCopy:
 			allElevatorStates, hallOrders = updateAllElevators(hallOrders, orderCopy, allElevatorStates)
 			updatedOrders := reAssignOrders(hallOrders, allElevatorStates)
 			Ch_ordersFromMaster <- updatedOrders
@@ -159,11 +149,21 @@ func Master(ID string,
 }
 
 
+func unitializedSingleStateElevator() StateSingleElevator {
+	return StateSingleElevator{
+		ElevatorBehaviour: "idle",
+		Floor:             1,
+		Direction:         "stop",
+		Available:         true,
+		CabOrders:         [NUMFLOORS]bool{},
+	}
+}
+
+
 func reAssignOrders(hallOrders HallOrders, allElevatorStates map[string]StateSingleElevator) GlobalOrderMap {
 	unavailableElevators  := []string{}
 	availableElevatorsMap := map[string]StateSingleElevator{}
 
-	//Checks availability for all elevators, and appends them in either an unavaliable list or an elevatormap
 	for elevatorID, elevatorState := range allElevatorStates {
 		if !elevatorState.Available {
 			unavailableElevators = append(unavailableElevators, elevatorID)
@@ -172,7 +172,6 @@ func reAssignOrders(hallOrders HallOrders, allElevatorStates map[string]StateSin
 		}
 	}
 
-	//Calculates which available elevators should take the hallorders of the lost peer
 	globOrderMap := GlobalOrderMap{}
 	if len(availableElevatorsMap) > 0 {
 		allElevators := AllElevators{GlobalOrders: hallOrders, AllElevatorStates: availableElevatorsMap}
@@ -182,7 +181,6 @@ func reAssignOrders(hallOrders HallOrders, allElevatorStates map[string]StateSin
 		}
 	}
 
-	//Add the cab-calls of the lost peer to the orderlist so it can be reminded of them when it returns
 	for _, elevatorID := range unavailableElevators {
 		orders := OrderMatrix{}
 		for floor := range orders {
@@ -192,6 +190,33 @@ func reAssignOrders(hallOrders HallOrders, allElevatorStates map[string]StateSin
 	}
 
 	return globOrderMap
+}
+
+
+func hallAssignerExec(input AllElevators) GlobalOrderMap {
+	hraExecutable := "hall_request_assigner"
+
+	jsonBytes, err := json.Marshal(input)
+	if err != nil {
+		fmt.Println("json.Marshal error: ", err)
+		return nil
+	}
+
+	ret, err := exec.Command("../TTK4145_Real-Time_Programming_G67/"+hraExecutable, "-i", string(jsonBytes)).CombinedOutput()
+	if err != nil {
+		fmt.Println("exec.Command error: ", err)
+		fmt.Println(string(ret))
+		return nil
+	}
+
+	output := GlobalOrderMap{}
+	err = json.Unmarshal(ret, &output)
+	if err != nil {
+		fmt.Println("json.Unmarshal error: ", err)
+		return nil
+	}
+
+	return output
 }
 
 
@@ -222,45 +247,6 @@ func updateAllElevators(hallOrders HallOrders, orderCopy GlobalOrderMap, allElev
 }
 
 
-func hallAssignerExec(input AllElevators) GlobalOrderMap {
-	hraExecutable := "hall_request_assigner"
-
-	jsonBytes, err := json.Marshal(input)
-	if err != nil {
-		fmt.Println("json.Marshal error: ", err)
-		return nil
-	}
-
-	ret, err := exec.Command("../TTK4145_Real-Time_Programming_G67/"+hraExecutable, "-i", string(jsonBytes)).CombinedOutput()
-	if err != nil {
-		fmt.Println("exec.Command error: ", err)
-		fmt.Println(string(ret))
-		return nil
-	}
-
-	output := GlobalOrderMap{}
-	err = json.Unmarshal(ret, &output)
-	if err != nil {
-		fmt.Println("json.Unmarshal error: ", err)
-		return nil
-	}
-
-	return output
-}
-
-// func IsGlobalOrderMapEmpty(orders GlobalOrderMap) bool {
-//     for _, orderMatrix := range orders {
-//         for floor := 0; floor < NUMFLOORS; floor++ {
-//             for btn := 0; btn < NUMBUTTONTYPE; btn++ {
-//                 if orderMatrix[floor][btn] {
-//                     return false
-//                 }
-//             }
-//         }
-//     }
-//     return true
-// }
-
 func checkIfUpdatedGlobalOrderMap(updatedOrders GlobalOrderMap, lastGlobaleOrderMap GlobalOrderMap) bool {
 	for elevatorID, orders := range updatedOrders {
 		for floor, row := range orders {
@@ -273,4 +259,5 @@ func checkIfUpdatedGlobalOrderMap(updatedOrders GlobalOrderMap, lastGlobaleOrder
 	}
 	return false
 }
+
 

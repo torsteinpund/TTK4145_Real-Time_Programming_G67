@@ -133,7 +133,7 @@ func initAfterErrorTimeout(dirn MotorDirection, ch_localorders <-chan LocalOrder
 	for{
 		select{
 		case <-ch_localorders: 
-		//Ensures draining of orderHandler
+			//Ensures draining of orderHandler
 		
 		default:
 			if getFloor()!=-1 {

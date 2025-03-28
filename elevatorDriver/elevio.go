@@ -21,23 +21,25 @@ type HardwareChannels struct {
 	Ch_obstruction chan bool
 }
 
-func InitHardwareConnection(addr string, ch_hardware HardwareChannels) {
+func InitHardwareConnection(addr string, Ch_hardware HardwareChannels) {
 	if _initialized {
 		fmt.Println("Driver already initialized!")
 		return
 	}
+
 	_mtx = sync.Mutex{}
 	var err error
 	_conn, err = net.Dial("tcp", addr)
+	
 	if err != nil {
 		panic(err.Error())
 	}
 	_initialized = true
 
-	go pollButtons(ch_hardware.Ch_buttonPress)
-	go pollFloorSensor(ch_hardware.Ch_floorSensor)
-	go pollStopButton(ch_hardware.Ch_stopButton)
-	go pollObstructionSwitch(ch_hardware.Ch_obstruction)
+	go pollButtons(Ch_hardware.Ch_buttonPress)
+	go pollFloorSensor(Ch_hardware.Ch_floorSensor)
+	go pollStopButton(Ch_hardware.Ch_stopButton)
+	go pollObstructionSwitch(Ch_hardware.Ch_obstruction)
 }
 
 func InitElevator(numFloors int, numButtonTypes int, elev Elevator, id string) Elevator {
@@ -67,7 +69,7 @@ func InitElevator(numFloors int, numButtonTypes int, elev Elevator, id string) E
 	}
 	elev.Floor = getFloor()
 
-	fmt.Println("Elevator initialized:")
+	fmt.Println("Elevator initialized")
 	return elev
 }
 
@@ -104,7 +106,7 @@ func setStopLamp(value bool) {
 	write([4]byte{5, toByte(value), 0, 0})
 }
 
-func pollButtons(receiver chan<- ButtonEvent) {
+func pollButtons(ch_buttonEvent chan<- ButtonEvent) {
 	prev := make([][3]bool, NUMFLOORS)
 	for {
 		time.Sleep(_pollRate)
@@ -112,7 +114,7 @@ func pollButtons(receiver chan<- ButtonEvent) {
 			for b := ButtonType(0); b < 3; b++ {
 				v := getButton(b, f)
 				if v != prev[f][b] && v {
-					receiver <- ButtonEvent{Floor: f, Button: ButtonType(b)}
+					ch_buttonEvent <- ButtonEvent{Floor: f, Button: ButtonType(b)}
 				}
 				prev[f][b] = v
 			}
@@ -120,37 +122,37 @@ func pollButtons(receiver chan<- ButtonEvent) {
 	}
 }
 
-func pollFloorSensor(receiver chan<- int) {
+func pollFloorSensor(ch_floorSensor chan<- int) {
 	prev := -1
 	for {
 		time.Sleep(_pollRate)
 		v := getFloor()
 		if v != prev && v != -1 {
-			receiver <- v
+			ch_floorSensor <- v
 		}
 		prev = v
 	}
 }
 
-func pollStopButton(receiver chan<- bool) {
+func pollStopButton(ch_stopButton chan<- bool) {
 	prev := false
 	for {
 		time.Sleep(_pollRate)
 		v := getStop()
 		if v != prev {
-			receiver <- v
+			ch_stopButton <- v
 		}
 		prev = v
 	}
 }
 
-func pollObstructionSwitch(receiver chan<- bool) {
+func pollObstructionSwitch(ch_obstruction chan<- bool) {
 	prev := false
 	for {
 		time.Sleep(_pollRate)
 		v := getObstruction()
 		if v != prev {
-			receiver <- v
+			ch_obstruction <- v
 		}
 		prev = v
 	}

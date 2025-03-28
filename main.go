@@ -1,26 +1,24 @@
 package main
 
 import (
+	"Driver-go/elevatorDriver"
 	"Driver-go/master"
 	"Driver-go/network"
 	"Driver-go/network/bcast"
 	"Driver-go/network/peers"
 	"Driver-go/orders"
-	"Driver-go/elevatorDriver"
 	. "Driver-go/types"
 	"flag"
 	"fmt"
 )
 
 func main() {
-	fmt.Println("Hello, World!")
 
 	var id string
 	var port string
 	flag.StringVar(&id, "id", "", "The ID of the elevator")
 	flag.StringVar(&port, "port", "19191", "The port for the elevator hardware connection")
 
-	// Standard port is 15657
 	flag.Parse()
 
 	if id == "" {
@@ -31,27 +29,25 @@ func main() {
 	fmt.Println("ID: ", id)
 	fmt.Println("Port: ", port)
 
-	peerDetectionPort := 18195
-	bcastPort := 19195
+	peerDetectionPort 	 := 18195
+	bcastPort 			 := 19195
 
+	Ch_txEnable 	  	 := make(chan bool)
+	Ch_isMaster 		 := make(chan bool)
+	Ch_peerLost 		 := make(chan string)
+	Ch_newPeer 			 := make(chan string)
+	Ch_localOrders 		 := make(chan LocalOrder)
+	Ch_clearedFloor		 := make(chan DirnFloorPair, 20)
+	Ch_peerUpdate		 := make(chan peers.PeersUpdate)
+	Ch_orderCopyToMaster := make(chan GlobalOrderMap)
+	Ch_orderCopyRequest  := make(chan bool)
+	Ch_networkConnection := make(chan bool)
 
-	Ch_txEnable 			:= make(chan bool)
-	Ch_isMaster 			:= make(chan bool)
-	Ch_peerLost 			:= make(chan string)
-	Ch_newPeer 				:= make(chan string)
-	Ch_localOrders 			:= make(chan LocalOrder)
-	Ch_clearedFloor 		:= make(chan DirnFloorPair, 20)
-	Ch_peerUpdate 			:= make(chan peers.PeersUpdate)
-	Ch_orderCopyResponse 	:= make(chan GlobalOrderMap)
-	Ch_orderCopyRequest 	:= make(chan bool)
-	Ch_networkConnection 	:= make(chan bool)
-
-
-	hardwareChannels := elevatorDriver.HardwareChannels{
-		Ch_buttonPress: make(chan ButtonEvent),
-		Ch_floorSensor: make(chan int),
-		Ch_stopButton:  make(chan bool),
-		Ch_obstruction: make(chan bool),
+	hardwareChannels 	 := elevatorDriver.HardwareChannels{
+		Ch_buttonPress:  make(chan ButtonEvent),
+		Ch_floorSensor:  make(chan int),
+		Ch_stopButton:   make(chan bool),
+		Ch_obstruction:  make(chan bool),
 	}
 
 	rxChannels := network.RXChannels{
@@ -68,7 +64,6 @@ func main() {
 
 	elevatorDriver.InitHardwareConnection("localhost:"+port, hardwareChannels)
 	elevator := elevatorDriver.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{}, id)
-	
 
 	go peers.Transmitter(peerDetectionPort, id, Ch_txEnable)
 	go peers.Receiver(peerDetectionPort, Ch_peerUpdate)
@@ -85,13 +80,13 @@ func main() {
 		txChannels.Ch_stateUpdate,
 		txChannels.Ch_orderEventToMaster,
 		txChannels.Ch_ordersFromMaster)
-		
+
 	go bcast.Receiver(bcastPort,
 		rxChannels.Ch_stateUpdate,
 		rxChannels.Ch_registerOrder,
 		rxChannels.Ch_ordersFromMaster)
 
-	go network.PollConnection(Ch_networkConnection)
+	go network.PollNetworkConnection(Ch_networkConnection)
 
 	go master.Master(elevator.ID,
 		Ch_isMaster,
@@ -99,7 +94,7 @@ func main() {
 		txChannels.Ch_ordersFromMaster,
 		rxChannels.Ch_registerOrder,
 		rxChannels.Ch_stateUpdate,
-		Ch_orderCopyResponse,
+		Ch_orderCopyToMaster,
 		Ch_orderCopyRequest,
 		Ch_newPeer)
 
@@ -114,7 +109,7 @@ func main() {
 	go orders.OrderHandler(elevator.ID,
 		Ch_localOrders,
 		txChannels.Ch_orderEventToMaster,
-		Ch_orderCopyResponse,
+		Ch_orderCopyToMaster,
 		hardwareChannels.Ch_buttonPress,
 		Ch_clearedFloor,
 		rxChannels.Ch_ordersFromMaster,
