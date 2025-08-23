@@ -7,22 +7,13 @@ const (
 )
 
 type ElevatorBehaviour int
-
 const (
 	EB_Idle ElevatorBehaviour = iota
 	EB_DoorOpen
 	EB_Moving
 )
 
-type ClearRequestVariant int
-
-const (
-	CV_All ClearRequestVariant = iota
-	CV_InDirn
-)
-
 type MotorDirection int
-
 const (
 	MD_Up   MotorDirection = 1
 	MD_Down MotorDirection = -1
@@ -30,7 +21,6 @@ const (
 )
 
 type Direction int
-
 const (
 	D_Up   Direction = 1
 	D_Down Direction = -1
@@ -38,7 +28,6 @@ const (
 )
 
 type ButtonType int
-
 const (
 	BT_HallUp   ButtonType = 0
 	BT_HallDown ButtonType = 1
@@ -61,45 +50,38 @@ type DirnBehaviourPair struct {
 	Behaviour ElevatorBehaviour
 }
 
-type ClearRequestCallback func(button ButtonType, floor int)
+type DirnFloorPair struct {
+	Dirn 	  MotorDirection
+	Floor 	  int
+}
 
 type OrderMatrix [NUMFLOORS][NUMBUTTONTYPE]bool
-
+type HallOrders [NUMFLOORS][NUMHALLBUTTONS]bool
 type GlobalOrderMap map[string]OrderMatrix
+type LocalOrder struct {
+	OrderMatrix 		OrderMatrix
+	NetworkConnection 	bool 
+}
 
 type Elevator struct {
-	ID        string
-	Floor     int
-	Dirn      MotorDirection
-	Requests  OrderMatrix
-	Behaviour ElevatorBehaviour
-	Avaliable bool
+	ID        string			`json:"id"`
+	Floor     int               `json:"floor"`
+	Dirn      MotorDirection    `json:"direction"`
+	Behaviour ElevatorBehaviour `json:"behaviour"`
+	Available bool				`json:"available"`
 	Config    struct {
-		ClearRequestVariant ClearRequestVariant
 		DoorOpenDuration    float64
 		TimeBetweenFloors   float64
 	}
 }
 
-type Receipient int
-
-const (
-	All Receipient = iota
-	Master
-)
-
-func (behaviour ElevatorBehaviour) ToString() string{
-	behavList := []string{"idle", "dooropen", "moving"}
+func (behaviour ElevatorBehaviour) ToString() string {
+	behavList := []string{"idle", "doorOpen", "moving"}
 	return behavList[int(behaviour)]
 }
 
-func (dirn MotorDirection) ToString() string{
-	dirnList := []string{"down","stop","up"}
+func (dirn MotorDirection) ToString() string {
+	dirnList := []string{"down", "stop", "up"}
 	return dirnList[dirn+1]
 }
 
-type NetworkMessage struct {
-	MsgType    string
-	MsgData    interface{}
-	Receipient Receipient
-}

@@ -1,69 +1,120 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-
-	//. "Driver-go/network/masterSelector"
+	"Driver-go/elevatorDriver"
 	"Driver-go/master"
-	"os/exec"
+	"Driver-go/network"
+	"Driver-go/network/bcast"
+	"Driver-go/network/peers"
+	"Driver-go/orders"
 	. "Driver-go/types"
+	"flag"
+	"fmt"
 )
 
+func main() {
 
-func main(){
+	var id string
+	var port string
+	flag.StringVar(&id, "id", "", "The ID of the elevator")
+	flag.StringVar(&port, "port", "19191", "The port for the elevator hardware connection")
 
-    
+	flag.Parse()
 
+	if id == "" {
+		fmt.Println("ID is required")
+		return
+	}
 
-    input := master.AllElevators{
-        GlobalOrders: [NUMFLOORS][NUMHALLBUTTONS]bool{{false, false}, {true, false}, {false, false}, {false, true}},
-        States: map[string]master.StateSingleElevator{
-            "one": master.StateSingleElevator{
-                ElevatorBehaviour:       "moving",
-                Floor:          2,
-                Direction:      "up",
-				Available: true,
-                CabOrders:    [NUMFLOORS]bool{false, false, false, true},
-				
-            },
-            "two": master.StateSingleElevator{
-                ElevatorBehaviour:       "idle",
-                Floor:          0,
-                Direction:      "stop",
-				Available: true,
-                CabOrders:    [NUMFLOORS]bool{false, false, false, false},
-				
-            },
-        },
-    }
+	fmt.Println("ID: ", id)
+	fmt.Println("Port: ", port)
 
-	hraExecutable := "hall_request_assigner"
+	peerDetectionPort 	 := 18195
+	bcastPort 			 := 19195
 
-    jsonBytes, err := json.Marshal(input)
-    if err != nil {
-        fmt.Println("json.Marshal error: ", err)
-        return
-    }
-    
-    ret, err := exec.Command("../TTK4145_Real-Time_Programming_G67/"+hraExecutable, "-i", string(jsonBytes)).CombinedOutput()
-    if err != nil {
-        fmt.Println("exec.Command error: ", err)
-        fmt.Println(string(ret))
-        return
-    }
-    
-    output := new(map[string][NUMFLOORS][NUMHALLBUTTONS]bool)
-    err = json.Unmarshal(ret, &output)
-    if err != nil {
-        fmt.Println("json.Unmarshal error: ", err)
-        return
-    }
-        
-    fmt.Printf("output: \n")
-    for k, v := range *output {
-        fmt.Printf("%6v :  %+v\n", k, v)
-    }
+	Ch_txEnable 	  	 := make(chan bool)
+	Ch_isMaster 		 := make(chan bool)
+	Ch_peerLost 		 := make(chan string)
+	Ch_newPeer 			 := make(chan string)
+	Ch_localOrders 		 := make(chan LocalOrder)
+	Ch_clearedFloor		 := make(chan DirnFloorPair, 20)
+	Ch_peerUpdate		 := make(chan peers.PeersUpdate)
+	Ch_orderCopyToMaster := make(chan GlobalOrderMap)
+	Ch_orderCopyRequest  := make(chan bool)
+	Ch_networkConnection := make(chan bool)
+
+	hardwareChannels 	 := elevatorDriver.HardwareChannels{
+		Ch_buttonPress:  make(chan ButtonEvent),
+		Ch_floorSensor:  make(chan int),
+		Ch_stopButton:   make(chan bool),
+		Ch_obstruction:  make(chan bool),
+	}
+
+	rxChannels := network.RXChannels{
+		Ch_stateUpdate:      make(chan Elevator),
+		Ch_registerOrder:    make(chan OrderEvent),
+		Ch_ordersFromMaster: make(chan GlobalOrderMap),
+	}
+
+	txChannels := network.TXChannels{
+		Ch_stateUpdate:        make(chan Elevator),
+		Ch_orderEventToMaster: make(chan OrderEvent),
+		Ch_ordersFromMaster:   make(chan GlobalOrderMap),
+	}
+
+	elevatorDriver.InitHardwareConnection("localhost:"+port, hardwareChannels)
+	elevator := elevatorDriver.InitElevator(NUMFLOORS, NUMBUTTONTYPE, Elevator{}, id)
+
+	go peers.Transmitter(peerDetectionPort, id, Ch_txEnable)
+	go peers.Receiver(peerDetectionPort, Ch_peerUpdate)
+	Ch_txEnable <- true
+
+	go network.PeerHandler(id,
+		rxChannels,
+		Ch_peerUpdate,
+		Ch_peerLost,
+		Ch_newPeer,
+		Ch_isMaster)
+
+	go bcast.Transmitter(bcastPort,
+		txChannels.Ch_stateUpdate,
+		txChannels.Ch_orderEventToMaster,
+		txChannels.Ch_ordersFromMaster)
+
+	go bcast.Receiver(bcastPort,
+		rxChannels.Ch_stateUpdate,
+		rxChannels.Ch_registerOrder,
+		rxChannels.Ch_ordersFromMaster)
+
+	go network.PollNetworkConnection(Ch_networkConnection)
+
+	go master.Master(elevator.ID,
+		Ch_isMaster,
+		Ch_peerLost,
+		txChannels.Ch_ordersFromMaster,
+		rxChannels.Ch_registerOrder,
+		rxChannels.Ch_stateUpdate,
+		Ch_orderCopyToMaster,
+		Ch_orderCopyRequest,
+		Ch_newPeer)
+
+	go elevatorDriver.Fsm(hardwareChannels.Ch_floorSensor,
+		hardwareChannels.Ch_stopButton,
+		hardwareChannels.Ch_obstruction,
+		Ch_localOrders,
+		Ch_clearedFloor,
+		txChannels.Ch_stateUpdate,
+		elevator)
+
+	go orders.OrderHandler(elevator.ID,
+		Ch_localOrders,
+		txChannels.Ch_orderEventToMaster,
+		Ch_orderCopyToMaster,
+		hardwareChannels.Ch_buttonPress,
+		Ch_clearedFloor,
+		rxChannels.Ch_ordersFromMaster,
+		Ch_orderCopyRequest,
+		Ch_networkConnection)
+
+	select {}
 }
-
-
